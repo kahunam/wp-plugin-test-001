@@ -216,4 +216,43 @@ class FIH_Logger {
 
 		return $logs ? $logs : array();
 	}
+
+	/**
+	 * Log an API event (API key changes, API tests, etc.).
+	 *
+	 * @since 1.0.0
+	 * @param string $event_type Type of API event (api_test, api_key_saved, etc.).
+	 * @param string $message Event message.
+	 * @param string $status Status (success, error, info).
+	 * @return int|false Log ID on success, false on failure.
+	 */
+	public function log_api_event( $event_type, $message, $status = 'info' ) {
+		global $wpdb;
+
+		// Always log API events regardless of debug setting
+		// This is important for troubleshooting API issues
+
+		$table_name = $wpdb->prefix . 'fih_logs';
+
+		$log_data = array(
+			'post_id'          => 0, // API events are not post-specific
+			'prompt'           => sanitize_text_field( $event_type ),
+			'response_status'  => sanitize_text_field( $status ),
+			'error_message'    => sanitize_textarea_field( $message ),
+			'generation_time'  => 0,
+			'created_at'       => current_time( 'mysql' ),
+		);
+
+		$inserted = $wpdb->insert(
+			$table_name,
+			$log_data,
+			array( '%d', '%s', '%s', '%s', '%f', '%s' )
+		);
+
+		if ( $inserted ) {
+			return $wpdb->insert_id;
+		}
+
+		return false;
+	}
 }

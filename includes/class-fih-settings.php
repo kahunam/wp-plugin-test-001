@@ -430,19 +430,19 @@ class FIH_Settings {
 	 */
 	private function render_logs_tab() {
 		$logger = FIH_Core::get_instance()->get_logger();
-		$logs   = $logger->get_logs( 3 );
+		$logs   = $logger->get_logs( 50 );
 		?>
-		<h2><?php esc_html_e( 'Recent Generation Logs', 'featured-image-helper' ); ?></h2>
+		<h2><?php esc_html_e( 'Recent Activity Logs', 'featured-image-helper' ); ?></h2>
 
 		<table class="wp-list-table widefat fixed striped">
 			<thead>
 				<tr>
 					<th><?php esc_html_e( 'Date', 'featured-image-helper' ); ?></th>
+					<th><?php esc_html_e( 'Type', 'featured-image-helper' ); ?></th>
 					<th><?php esc_html_e( 'Post', 'featured-image-helper' ); ?></th>
-					<th><?php esc_html_e( 'Prompt', 'featured-image-helper' ); ?></th>
+					<th><?php esc_html_e( 'Details', 'featured-image-helper' ); ?></th>
 					<th><?php esc_html_e( 'Status', 'featured-image-helper' ); ?></th>
 					<th><?php esc_html_e( 'Time (s)', 'featured-image-helper' ); ?></th>
-					<th><?php esc_html_e( 'Error', 'featured-image-helper' ); ?></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -452,20 +452,48 @@ class FIH_Settings {
 					</tr>
 				<?php else : ?>
 					<?php foreach ( $logs as $log ) : ?>
+						<?php
+						// Determine if this is an API event or generation log
+						$is_api_event = ( 0 === (int) $log['post_id'] );
+						$status_class = 'success' === $log['response_status'] ? 'style="color: #46b450;"' : ( 'error' === $log['response_status'] ? 'style="color: #dc3232;"' : '' );
+						?>
 						<tr>
 							<td><?php echo esc_html( $log['created_at'] ); ?></td>
+							<td>
+								<?php
+								if ( $is_api_event ) {
+									echo '<span style="color: #2271b1; font-weight: 600;">⚙ ' . esc_html( ucfirst( str_replace( '_', ' ', $log['prompt'] ) ) ) . '</span>';
+								} else {
+									echo '<span style="color: #50575e;">🖼 ' . esc_html__( 'Image Generation', 'featured-image-helper' ) . '</span>';
+								}
+								?>
+							</td>
 							<td>
 								<?php
 								if ( $log['post_id'] ) {
 									$post_title = get_the_title( $log['post_id'] );
 									echo esc_html( $post_title ? $post_title : __( 'Unknown', 'featured-image-helper' ) );
+								} else {
+									echo '<em>' . esc_html__( 'N/A', 'featured-image-helper' ) . '</em>';
 								}
 								?>
 							</td>
-							<td><?php echo esc_html( wp_trim_words( $log['prompt'], 10 ) ); ?></td>
-							<td><?php echo esc_html( $log['response_status'] ); ?></td>
+							<td>
+								<?php
+								if ( $is_api_event ) {
+									echo esc_html( $log['error_message'] );
+								} else {
+									echo esc_html( wp_trim_words( $log['prompt'], 10 ) );
+									if ( ! empty( $log['error_message'] ) ) {
+										echo '<br><span style="color: #dc3232; font-size: 0.9em;">' . esc_html( $log['error_message'] ) . '</span>';
+									}
+								}
+								?>
+							</td>
+							<td <?php echo $status_class; ?>>
+								<strong><?php echo esc_html( ucfirst( $log['response_status'] ) ); ?></strong>
+							</td>
 							<td><?php echo esc_html( number_format( $log['generation_time'], 2 ) ); ?></td>
-							<td><?php echo esc_html( $log['error_message'] ); ?></td>
 						</tr>
 					<?php endforeach; ?>
 				<?php endif; ?>

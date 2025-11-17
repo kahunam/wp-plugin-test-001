@@ -426,10 +426,21 @@ class FIH_Gemini {
 	 * @return bool|WP_Error True on success, WP_Error on failure.
 	 */
 	public function test_connection() {
+		$start_time = microtime( true );
 		$api_key = $this->get_api_key();
 
+		// Get logger instance for logging test results
+		$logger = FIH_Core::get_instance()->get_logger();
+
 		if ( empty( $api_key ) ) {
-			return new WP_Error( 'no_api_key', __( 'API key is not configured.', 'featured-image-helper' ) );
+			$error = new WP_Error( 'no_api_key', __( 'API key is not configured.', 'featured-image-helper' ) );
+
+			// Log the test failure
+			if ( $logger ) {
+				$logger->log_api_event( 'api_test', 'API test failed: No API key configured', 'error' );
+			}
+
+			return $error;
 		}
 
 		// Make a simple test request.
@@ -446,14 +457,40 @@ class FIH_Gemini {
 		);
 
 		$response = $this->make_api_request( $args );
+		$test_time = microtime( true ) - $start_time;
 
 		if ( is_wp_error( $response ) ) {
+			// Log the test failure
+			if ( $logger ) {
+				$logger->log_api_event(
+					'api_test',
+					'API test failed: ' . $response->get_error_message() . ' (Time: ' . number_format( $test_time, 2 ) . 's)',
+					'error'
+				);
+			}
+
 			return $response;
 		}
 
 		// Check if response has the expected structure
 		if ( ! isset( $response['candidates'] ) && ! isset( $response['predictions'] ) ) {
-			return new WP_Error( 'invalid_response', __( 'API returned an unexpected response format.', 'featured-image-helper' ) );
+			$error = new WP_Error( 'invalid_response', __( 'API returned an unexpected response format.', 'featured-image-helper' ) );
+
+			// Log the test failure
+			if ( $logger ) {
+				$logger->log_api_event( 'api_test', 'API test failed: Invalid response format (Time: ' . number_format( $test_time, 2 ) . 's)', 'error' );
+			}
+
+			return $error;
+		}
+
+		// Log successful test
+		if ( $logger ) {
+			$logger->log_api_event(
+				'api_test',
+				'API test successful! Gemini API is working correctly. (Time: ' . number_format( $test_time, 2 ) . 's)',
+				'success'
+			);
 		}
 
 		return true;
