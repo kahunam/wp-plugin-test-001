@@ -874,14 +874,19 @@ class FIH_Admin {
 					<?php esc_html_e( 'Gemini API Key', 'featured-image-helper' ); ?>
 					<span class="fih-required">*</span>
 				</label>
-				<input type="password" id="fih_gemini_api_key" name="fih_gemini_api_key" value="" class="fih-input" placeholder="<?php esc_attr_e( 'Enter your Gemini API key', 'featured-image-helper' ); ?>" />
+				<?php $has_api_key = ! empty( get_option( 'fih_gemini_api_key' ) ); ?>
+				<input type="password" id="fih_gemini_api_key" name="fih_gemini_api_key" value="" class="fih-input" placeholder="<?php echo $has_api_key ? esc_attr__( 'Enter new API key to update', 'featured-image-helper' ) : esc_attr__( 'Enter your Gemini API key', 'featured-image-helper' ); ?>" />
 				<p class="fih-help-text">
 					<?php esc_html_e( 'Get your API key from Google AI Studio.', 'featured-image-helper' ); ?>
 					<a href="https://aistudio.google.com/app/apikey" target="_blank" class="fih-link"><?php esc_html_e( 'Get API Key', 'featured-image-helper' ); ?></a>
 				</p>
-				<?php if ( get_option( 'fih_gemini_api_key' ) ) : ?>
-					<p class="fih-help-text" style="color: #46b450;">
-						✓ <?php esc_html_e( 'API key is configured', 'featured-image-helper' ); ?>
+				<?php if ( $has_api_key ) : ?>
+					<p class="fih-help-text" style="color: #46b450; font-weight: 600;">
+						✓ <?php esc_html_e( 'API key is configured. Leave blank to keep current key, or enter a new key to update.', 'featured-image-helper' ); ?>
+					</p>
+				<?php else : ?>
+					<p class="fih-help-text" style="color: #dc3232;">
+						⚠ <?php esc_html_e( 'No API key configured. You must enter an API key to use this plugin.', 'featured-image-helper' ); ?>
 					</p>
 				<?php endif; ?>
 			</div>
@@ -1178,11 +1183,19 @@ class FIH_Admin {
 
 		switch ( $tab ) {
 			case 'api':
+				// Handle Gemini API key - only update if a new value is provided
 				if ( isset( $_POST['fih_gemini_api_key'] ) ) {
 					$api_key = sanitize_text_field( wp_unslash( $_POST['fih_gemini_api_key'] ) );
 					if ( ! empty( $api_key ) ) {
 						$gemini = FIH_Core::get_instance()->get_gemini();
-						update_option( 'fih_gemini_api_key', $gemini->encrypt_api_key( $api_key ) );
+						$encrypted_key = $gemini->encrypt_api_key( $api_key );
+						update_option( 'fih_gemini_api_key', $encrypted_key );
+
+						// Log the API key save attempt
+						$logger = FIH_Core::get_instance()->get_logger();
+						if ( $logger ) {
+							$logger->log_api_event( 'api_key_saved', 'Gemini API key was updated', 'success' );
+						}
 					}
 				}
 				if ( isset( $_POST['fih_unsplash_api_key'] ) ) {
