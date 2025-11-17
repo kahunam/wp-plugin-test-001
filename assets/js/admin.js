@@ -37,6 +37,9 @@
 			$('.fih-pause-queue').on('click', this.pauseQueue);
 			$('.fih-resume-queue').on('click', this.resumeQueue);
 
+			// Bulk generate all.
+			$('.fih-bulk-generate-all').on('click', this.bulkGenerateAll);
+
 			// Clear logs confirmation.
 			$('input[name="clear_logs"]').on('click', this.confirmClearLogs);
 
@@ -269,6 +272,63 @@
 				},
 				error: function () {
 					$button.prop('disabled', false);
+				},
+			});
+		},
+
+		/**
+		 * Bulk generate all featured images.
+		 */
+		bulkGenerateAll: function (e) {
+			e.preventDefault();
+
+			const $button = $(this);
+			const postType = $button.data('post-type');
+			const nonce = $button.data('nonce');
+
+			if (!confirm('This will add all posts without featured images to the generation queue. Continue?')) {
+				return;
+			}
+
+			// Disable button and show loading state.
+			$button.prop('disabled', true).addClass('fih-generating');
+			const originalText = $button.html();
+			$button.html('Adding to queue... <span class="fih-spinner"></span>');
+
+			// Make AJAX request.
+			$.ajax({
+				url: fihAdmin.ajaxUrl,
+				type: 'POST',
+				data: {
+					action: 'fih_bulk_generate_all',
+					post_type: postType,
+					nonce: fihAdmin.nonce,
+				},
+				success: function (response) {
+					if (response.success) {
+						// Show success message.
+						FIHAdmin.showMessage(response.data.message, 'success');
+
+						// Reload page to show updated data.
+						setTimeout(function () {
+							location.reload();
+						}, 1500);
+					} else {
+						// Show error message.
+						FIHAdmin.showMessage(response.data.message, 'error');
+
+						// Re-enable button.
+						$button.prop('disabled', false).removeClass('fih-generating');
+						$button.html(originalText);
+					}
+				},
+				error: function () {
+					// Show error message.
+					FIHAdmin.showMessage('An error occurred while adding posts to queue.', 'error');
+
+					// Re-enable button.
+					$button.prop('disabled', false).removeClass('fih-generating');
+					$button.html(originalText);
 				},
 			});
 		},
