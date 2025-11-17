@@ -61,7 +61,7 @@ class FIH_Settings {
 	 */
 	public function register_settings() {
 		// API Configuration.
-		register_setting( 'fih_api_settings', 'fih_gemini_api_key', 'sanitize_text_field' );
+		register_setting( 'fih_api_settings', 'fih_gemini_api_key', array( $this, 'sanitize_api_key' ) );
 		register_setting( 'fih_api_settings', 'fih_unsplash_api_key', 'sanitize_text_field' );
 		register_setting( 'fih_api_settings', 'fih_pexels_api_key', 'sanitize_text_field' );
 
@@ -86,6 +86,31 @@ class FIH_Settings {
 		register_setting( 'fih_advanced_settings', 'fih_log_retention_days', 'absint' );
 		register_setting( 'fih_advanced_settings', 'fih_debug_logging_enabled', array( $this, 'sanitize_checkbox' ) );
 		register_setting( 'fih_advanced_settings', 'fih_send_completion_email', array( $this, 'sanitize_checkbox' ) );
+	}
+
+	/**
+	 * Sanitize API key value.
+	 *
+	 * @since 1.0.0
+	 * @param string $value New API key value.
+	 * @return string Sanitized API key.
+	 */
+	public function sanitize_api_key( $value ) {
+		$value = sanitize_text_field( $value );
+
+		// Check if the value contains asterisks (masked value)
+		if ( strpos( $value, '*' ) !== false ) {
+			// Return the existing saved key instead of the masked value
+			return get_option( 'fih_gemini_api_key', '' );
+		}
+
+		// If empty, keep the existing key
+		if ( empty( $value ) ) {
+			return get_option( 'fih_gemini_api_key', '' );
+		}
+
+		// Otherwise, save the new key
+		return $value;
 	}
 
 	/**
@@ -197,10 +222,23 @@ class FIH_Settings {
 						<label for="fih_gemini_api_key"><?php esc_html_e( 'Gemini API Key', 'featured-image-helper' ); ?></label>
 					</th>
 					<td>
-						<input type="text" id="fih_gemini_api_key" name="fih_gemini_api_key" value="" class="regular-text" placeholder="<?php esc_attr_e( 'Enter your Gemini API key', 'featured-image-helper' ); ?>" />
+						<?php
+						$saved_api_key = get_option( 'fih_gemini_api_key', '' );
+						$display_value = '';
+						if ( ! empty( $saved_api_key ) ) {
+							// Show a masked version of the saved key
+							$display_value = substr( $saved_api_key, 0, 8 ) . str_repeat( '*', max( 0, strlen( $saved_api_key ) - 12 ) ) . substr( $saved_api_key, -4 );
+						}
+						?>
+						<input type="text" id="fih_gemini_api_key" name="fih_gemini_api_key" value="<?php echo esc_attr( $display_value ); ?>" class="regular-text" placeholder="<?php esc_attr_e( 'Enter your Gemini API key', 'featured-image-helper' ); ?>" />
 						<p class="description">
-							<?php esc_html_e( 'Get your API key from Google AI Studio.', 'featured-image-helper' ); ?>
-							<a href="https://makersuite.google.com/app/apikey" target="_blank"><?php esc_html_e( 'Get API Key', 'featured-image-helper' ); ?></a>
+							<?php
+							if ( ! empty( $saved_api_key ) ) {
+								echo '<span style="color: #46b450;">✓ ' . esc_html__( 'API key is saved. Enter a new key to update, or leave as-is to keep current key.', 'featured-image-helper' ) . '</span><br>';
+							}
+							?>
+							<?php esc_html_e( 'This plugin uses Google Imagen 3 for AI image generation. Get your API key from Google AI Studio.', 'featured-image-helper' ); ?>
+							<a href="https://aistudio.google.com/app/apikey" target="_blank"><?php esc_html_e( 'Get API Key', 'featured-image-helper' ); ?></a>
 						</p>
 					</td>
 				</tr>

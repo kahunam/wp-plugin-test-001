@@ -21,11 +21,11 @@ if ( ! defined( 'WPINC' ) ) {
 class FIH_Gemini {
 
 	/**
-	 * Gemini API endpoint for image generation.
+	 * Imagen API endpoint for image generation.
 	 *
 	 * @var string
 	 */
-	private $api_endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
+	private $api_endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict';
 
 	/**
 	 * Default prompt templates.
@@ -191,14 +191,13 @@ class FIH_Gemini {
 	 */
 	private function get_generation_args( $prompt ) {
 		return array(
-			'contents' => array(
+			'instances' => array(
 				array(
-					'parts' => array(
-						array(
-							'text' => $prompt,
-						),
-					),
+					'prompt' => $prompt,
 				),
+			),
+			'parameters' => array(
+				'sampleCount' => 1,
 			),
 		);
 	}
@@ -265,25 +264,22 @@ class FIH_Gemini {
 	 * @return int|WP_Error Attachment ID or error.
 	 */
 	private function save_generated_image( $response, $post ) {
-		// Extract image data from response.
-		// New format: candidates[0].content.parts[0].inlineData.data
+		// Extract image data from Imagen API response.
+		// Imagen format: predictions[0].bytesBase64Encoded
 		$image_base64 = null;
 
-		if ( isset( $response['candidates'][0]['content']['parts'][0]['inlineData']['data'] ) ) {
-			$image_base64 = $response['candidates'][0]['content']['parts'][0]['inlineData']['data'];
-		} elseif ( isset( $response['predictions'][0]['bytesBase64Encoded'] ) ) {
-			// Fallback to old format
+		if ( isset( $response['predictions'][0]['bytesBase64Encoded'] ) ) {
 			$image_base64 = $response['predictions'][0]['bytesBase64Encoded'];
 		}
 
 		if ( empty( $image_base64 ) ) {
-			return new WP_Error( 'invalid_response', __( 'Invalid API response format. No image data found.', 'featured-image-helper' ) );
+			return new WP_Error( 'invalid_response', __( 'Invalid image data returned from API. Please check your API key and try again.', 'featured-image-helper' ) );
 		}
 
 		$image_data = base64_decode( $image_base64 );
 
-		if ( empty( $image_data ) ) {
-			return new WP_Error( 'empty_image', __( 'Received empty image data.', 'featured-image-helper' ) );
+		if ( empty( $image_data ) || $image_data === false ) {
+			return new WP_Error( 'empty_image', __( 'Failed to decode image data from API response.', 'featured-image-helper' ) );
 		}
 
 		// Generate filename.
@@ -401,16 +397,15 @@ class FIH_Gemini {
 			return $error;
 		}
 
-		// Make a simple test request.
+		// Make a simple test request using Imagen API format.
 		$args = array(
-			'contents' => array(
+			'instances' => array(
 				array(
-					'parts' => array(
-						array(
-							'text' => 'Generate a simple test image of a blue sky',
-						),
-					),
+					'prompt' => 'A simple blue sky with white clouds',
 				),
+			),
+			'parameters' => array(
+				'sampleCount' => 1,
 			),
 		);
 
@@ -430,9 +425,9 @@ class FIH_Gemini {
 			return $response;
 		}
 
-		// Check if response has the expected structure
-		if ( ! isset( $response['candidates'] ) && ! isset( $response['predictions'] ) ) {
-			$error = new WP_Error( 'invalid_response', __( 'API returned an unexpected response format.', 'featured-image-helper' ) );
+		// Check if response has the expected Imagen structure
+		if ( ! isset( $response['predictions'] ) || ! isset( $response['predictions'][0]['bytesBase64Encoded'] ) ) {
+			$error = new WP_Error( 'invalid_response', __( 'API returned an unexpected response format. Please verify your API key has access to Imagen.', 'featured-image-helper' ) );
 
 			// Log the test failure
 			if ( $logger ) {
@@ -446,7 +441,7 @@ class FIH_Gemini {
 		if ( $logger ) {
 			$logger->log_api_event(
 				'api_test',
-				'API test successful! Gemini API is working correctly. (Time: ' . number_format( $test_time, 2 ) . 's)',
+				'API test successful! Imagen 3 API is working correctly and can generate images. (Time: ' . number_format( $test_time, 2 ) . 's)',
 				'success'
 			);
 		}

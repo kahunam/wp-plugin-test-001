@@ -877,7 +877,7 @@ class FIH_Admin {
 				<?php $has_api_key = ! empty( get_option( 'fih_gemini_api_key' ) ); ?>
 				<input type="password" id="fih_gemini_api_key" name="fih_gemini_api_key" value="" class="fih-input" placeholder="<?php echo $has_api_key ? esc_attr__( 'Enter new API key to update', 'featured-image-helper' ) : esc_attr__( 'Enter your Gemini API key', 'featured-image-helper' ); ?>" />
 				<p class="fih-help-text">
-					<?php esc_html_e( 'Get your API key from Google AI Studio.', 'featured-image-helper' ); ?>
+					<?php esc_html_e( 'This plugin uses Google Imagen 3 for AI image generation. Get your API key from Google AI Studio.', 'featured-image-helper' ); ?>
 					<a href="https://aistudio.google.com/app/apikey" target="_blank" class="fih-link"><?php esc_html_e( 'Get API Key', 'featured-image-helper' ); ?></a>
 				</p>
 				<?php if ( $has_api_key ) : ?>
@@ -1152,7 +1152,7 @@ class FIH_Admin {
 			);
 		} else {
 			$message_type = 'success';
-			$message      = __( 'API connection successful! Your Gemini API key is working correctly.', 'featured-image-helper' );
+			$message      = __( 'API connection successful! Your API key is working correctly and can generate images with Imagen 3.', 'featured-image-helper' );
 		}
 
 		wp_safe_redirect(
