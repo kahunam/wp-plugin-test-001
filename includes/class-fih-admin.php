@@ -1187,9 +1187,7 @@ class FIH_Admin {
 				if ( isset( $_POST['fih_gemini_api_key'] ) ) {
 					$api_key = sanitize_text_field( wp_unslash( $_POST['fih_gemini_api_key'] ) );
 					if ( ! empty( $api_key ) ) {
-						$gemini = FIH_Core::get_instance()->get_gemini();
-						$encrypted_key = $gemini->encrypt_api_key( $api_key );
-						update_option( 'fih_gemini_api_key', $encrypted_key );
+						update_option( 'fih_gemini_api_key', $api_key );
 
 						// Log the API key save attempt
 						$logger = FIH_Core::get_instance()->get_logger();

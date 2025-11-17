@@ -368,55 +368,13 @@ class FIH_Gemini {
 	}
 
 	/**
-	 * Get encrypted API key.
+	 * Get API key.
 	 *
 	 * @since 1.0.0
-	 * @return string Decrypted API key.
+	 * @return string API key.
 	 */
 	private function get_api_key() {
-		$encrypted_key = get_option( 'fih_gemini_api_key', '' );
-
-		if ( empty( $encrypted_key ) ) {
-			return '';
-		}
-
-		// Decrypt the API key.
-		return $this->decrypt_api_key( $encrypted_key );
-	}
-
-	/**
-	 * Encrypt API key for storage.
-	 *
-	 * @since 1.0.0
-	 * @param string $api_key Plain text API key.
-	 * @return string Encrypted API key.
-	 */
-	public function encrypt_api_key( $api_key ) {
-		if ( empty( $api_key ) ) {
-			return '';
-		}
-
-		// Use WordPress salts for encryption.
-		$key = wp_salt( 'auth' );
-		return base64_encode( $api_key ^ str_repeat( $key, ceil( strlen( $api_key ) / strlen( $key ) ) ) );
-	}
-
-	/**
-	 * Decrypt API key from storage.
-	 *
-	 * @since 1.0.0
-	 * @param string $encrypted_key Encrypted API key.
-	 * @return string Decrypted API key.
-	 */
-	private function decrypt_api_key( $encrypted_key ) {
-		if ( empty( $encrypted_key ) ) {
-			return '';
-		}
-
-		// Use WordPress salts for decryption.
-		$key        = wp_salt( 'auth' );
-		$decrypted  = base64_decode( $encrypted_key );
-		return $decrypted ^ str_repeat( $key, ceil( strlen( $decrypted ) / strlen( $key ) ) );
+		return get_option( 'fih_gemini_api_key', '' );
 	}
 
 	/**

@@ -61,7 +61,7 @@ class FIH_Settings {
 	 */
 	public function register_settings() {
 		// API Configuration.
-		register_setting( 'fih_api_settings', 'fih_gemini_api_key', array( $this, 'sanitize_api_key' ) );
+		register_setting( 'fih_api_settings', 'fih_gemini_api_key', 'sanitize_text_field' );
 		register_setting( 'fih_api_settings', 'fih_unsplash_api_key', 'sanitize_text_field' );
 		register_setting( 'fih_api_settings', 'fih_pexels_api_key', 'sanitize_text_field' );
 
@@ -86,25 +86,6 @@ class FIH_Settings {
 		register_setting( 'fih_advanced_settings', 'fih_log_retention_days', 'absint' );
 		register_setting( 'fih_advanced_settings', 'fih_debug_logging_enabled', array( $this, 'sanitize_checkbox' ) );
 		register_setting( 'fih_advanced_settings', 'fih_send_completion_email', array( $this, 'sanitize_checkbox' ) );
-	}
-
-	/**
-	 * Sanitize API key.
-	 *
-	 * @since 1.0.0
-	 * @param string $value API key value.
-	 * @return string Encrypted API key.
-	 */
-	public function sanitize_api_key( $value ) {
-		$value = sanitize_text_field( $value );
-
-		if ( empty( $value ) ) {
-			return '';
-		}
-
-		// Encrypt the API key.
-		$gemini = FIH_Core::get_instance()->get_gemini();
-		return $gemini->encrypt_api_key( $value );
 	}
 
 	/**
