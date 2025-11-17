@@ -63,6 +63,9 @@ class FIH_Admin {
 		add_action( 'admin_post_fih_bulk_generate', array( $this, 'handle_bulk_generate' ) );
 		add_action( 'admin_post_fih_bulk_add_to_queue', array( $this, 'handle_bulk_add_to_queue' ) );
 
+		// Handle API test.
+		add_action( 'admin_post_fih_test_api', array( $this, 'handle_test_api' ) );
+
 		// Auto-generation hooks.
 		$this->setup_auto_generation();
 	}
@@ -793,6 +796,23 @@ class FIH_Admin {
 		<div class="wrap fih-wrap fih-settings-wrap">
 			<h1 class="fih-page-title"><?php esc_html_e( 'Settings', 'featured-image-helper' ); ?></h1>
 
+			<?php if ( isset( $_GET['settings-updated'] ) ) : ?>
+				<div class="notice notice-success is-dismissible">
+					<p><?php esc_html_e( 'Settings saved successfully!', 'featured-image-helper' ); ?></p>
+				</div>
+			<?php endif; ?>
+
+			<?php if ( isset( $_GET['test_result'] ) && isset( $_GET['test_message'] ) ) : ?>
+				<?php
+				$test_result  = sanitize_text_field( wp_unslash( $_GET['test_result'] ) );
+				$test_message = rawurldecode( sanitize_text_field( wp_unslash( $_GET['test_message'] ) ) );
+				$notice_class = 'success' === $test_result ? 'notice-success' : 'notice-error';
+				?>
+				<div class="notice <?php echo esc_attr( $notice_class ); ?> is-dismissible">
+					<p><?php echo esc_html( $test_message ); ?></p>
+				</div>
+			<?php endif; ?>
+
 			<div class="fih-tabs">
 				<a href="?page=<?php echo esc_attr( $this->settings_slug ); ?>&tab=api" class="fih-tab <?php echo 'api' === $active_tab ? 'fih-tab-active' : ''; ?>">
 					<?php esc_html_e( 'API Configuration', 'featured-image-helper' ); ?>
@@ -857,8 +877,13 @@ class FIH_Admin {
 				<input type="password" id="fih_gemini_api_key" name="fih_gemini_api_key" value="" class="fih-input" placeholder="<?php esc_attr_e( 'Enter your Gemini API key', 'featured-image-helper' ); ?>" />
 				<p class="fih-help-text">
 					<?php esc_html_e( 'Get your API key from Google AI Studio.', 'featured-image-helper' ); ?>
-					<a href="https://makersuite.google.com/app/apikey" target="_blank" class="fih-link"><?php esc_html_e( 'Get API Key', 'featured-image-helper' ); ?></a>
+					<a href="https://aistudio.google.com/app/apikey" target="_blank" class="fih-link"><?php esc_html_e( 'Get API Key', 'featured-image-helper' ); ?></a>
 				</p>
+				<?php if ( get_option( 'fih_gemini_api_key' ) ) : ?>
+					<p class="fih-help-text" style="color: #46b450;">
+						✓ <?php esc_html_e( 'API key is configured', 'featured-image-helper' ); ?>
+					</p>
+				<?php endif; ?>
 			</div>
 
 			<div class="fih-form-group">
@@ -883,6 +908,14 @@ class FIH_Admin {
 				<button type="submit" class="fih-button fih-button-primary"><?php esc_html_e( 'Save Settings', 'featured-image-helper' ); ?></button>
 			</div>
 		</form>
+
+		<?php if ( get_option( 'fih_gemini_api_key' ) ) : ?>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top: 20px;">
+				<?php wp_nonce_field( 'fih_test_api', 'fih_test_api_nonce' ); ?>
+				<input type="hidden" name="action" value="fih_test_api" />
+				<button type="submit" class="fih-button"><?php esc_html_e( 'Test API Connection', 'featured-image-helper' ); ?></button>
+			</form>
+		<?php endif; ?>
 		<?php
 	}
 
@@ -1082,6 +1115,53 @@ class FIH_Admin {
 			</div>
 		</form>
 		<?php
+	}
+
+	/**
+	 * Handle API test request.
+	 *
+	 * @since 1.0.0
+	 */
+	public function handle_test_api() {
+		// Verify nonce.
+		if ( ! isset( $_POST['fih_test_api_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['fih_test_api_nonce'] ) ), 'fih_test_api' ) ) {
+			wp_die( esc_html__( 'Security check failed.', 'featured-image-helper' ) );
+		}
+
+		// Check capabilities.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have sufficient permissions.', 'featured-image-helper' ) );
+		}
+
+		$gemini = FIH_Core::get_instance()->get_gemini();
+		$result = $gemini->test_connection();
+
+		$message_type = 'error';
+		$message      = '';
+
+		if ( is_wp_error( $result ) ) {
+			$message = sprintf(
+				/* translators: %s: error message */
+				__( 'API connection failed: %s', 'featured-image-helper' ),
+				$result->get_error_message()
+			);
+		} else {
+			$message_type = 'success';
+			$message      = __( 'API connection successful! Your Gemini API key is working correctly.', 'featured-image-helper' );
+		}
+
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'         => $this->settings_slug,
+					'tab'          => 'api',
+					'test_result'  => $message_type,
+					'test_message' => rawurlencode( $message ),
+				),
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
 	}
 
 	/**

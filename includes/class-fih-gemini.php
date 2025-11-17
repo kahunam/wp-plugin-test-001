@@ -25,7 +25,7 @@ class FIH_Gemini {
 	 *
 	 * @var string
 	 */
-	private $api_endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict';
+	private $api_endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
 
 	/**
 	 * Default prompt templates.
@@ -190,20 +190,15 @@ class FIH_Gemini {
 	 * @return array API request arguments.
 	 */
 	private function get_generation_args( $prompt ) {
-		$image_size = get_option( 'fih_default_image_size', '1200x630' );
-		list( $width, $height ) = explode( 'x', $image_size );
-
 		return array(
-			'instances'  => array(
+			'contents' => array(
 				array(
-					'prompt' => $prompt,
+					'parts' => array(
+						array(
+							'text' => $prompt,
+						),
+					),
 				),
-			),
-			'parameters' => array(
-				'sampleCount'      => 1,
-				'aspectRatio'      => $width . ':' . $height,
-				'safetyFilterLevel' => 'block_some',
-				'personGeneration'  => 'allow_adult',
 			),
 		);
 	}
@@ -220,10 +215,11 @@ class FIH_Gemini {
 		$api_key = $this->get_api_key();
 
 		$response = wp_remote_post(
-			add_query_arg( 'key', $api_key, $this->api_endpoint ),
+			$this->api_endpoint,
 			array(
 				'headers' => array(
-					'Content-Type' => 'application/json',
+					'Content-Type'   => 'application/json',
+					'x-goog-api-key' => $api_key,
 				),
 				'body'    => wp_json_encode( $args ),
 				'timeout' => 60,
@@ -270,11 +266,21 @@ class FIH_Gemini {
 	 */
 	private function save_generated_image( $response, $post ) {
 		// Extract image data from response.
-		if ( ! isset( $response['predictions'][0]['bytesBase64Encoded'] ) ) {
-			return new WP_Error( 'invalid_response', __( 'Invalid API response format.', 'featured-image-helper' ) );
+		// New format: candidates[0].content.parts[0].inlineData.data
+		$image_base64 = null;
+
+		if ( isset( $response['candidates'][0]['content']['parts'][0]['inlineData']['data'] ) ) {
+			$image_base64 = $response['candidates'][0]['content']['parts'][0]['inlineData']['data'];
+		} elseif ( isset( $response['predictions'][0]['bytesBase64Encoded'] ) ) {
+			// Fallback to old format
+			$image_base64 = $response['predictions'][0]['bytesBase64Encoded'];
 		}
 
-		$image_data = base64_decode( $response['predictions'][0]['bytesBase64Encoded'] );
+		if ( empty( $image_base64 ) ) {
+			return new WP_Error( 'invalid_response', __( 'Invalid API response format. No image data found.', 'featured-image-helper' ) );
+		}
+
+		$image_data = base64_decode( $image_base64 );
 
 		if ( empty( $image_data ) ) {
 			return new WP_Error( 'empty_image', __( 'Received empty image data.', 'featured-image-helper' ) );
@@ -428,13 +434,14 @@ class FIH_Gemini {
 
 		// Make a simple test request.
 		$args = array(
-			'instances'  => array(
+			'contents' => array(
 				array(
-					'prompt' => 'A simple test image',
+					'parts' => array(
+						array(
+							'text' => 'Generate a simple test image of a blue sky',
+						),
+					),
 				),
-			),
-			'parameters' => array(
-				'sampleCount' => 1,
 			),
 		);
 
@@ -442,6 +449,11 @@ class FIH_Gemini {
 
 		if ( is_wp_error( $response ) ) {
 			return $response;
+		}
+
+		// Check if response has the expected structure
+		if ( ! isset( $response['candidates'] ) && ! isset( $response['predictions'] ) ) {
+			return new WP_Error( 'invalid_response', __( 'API returned an unexpected response format.', 'featured-image-helper' ) );
 		}
 
 		return true;
