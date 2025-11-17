@@ -28,6 +28,13 @@ class FIH_Admin {
 	private $page_slug = 'featured-image-helper';
 
 	/**
+	 * Settings page slug.
+	 *
+	 * @var string
+	 */
+	private $settings_slug = 'featured-image-helper-settings';
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 1.0.0
@@ -50,6 +57,7 @@ class FIH_Admin {
 		add_action( 'wp_ajax_fih_pause_queue', array( $this, 'ajax_pause_queue' ) );
 		add_action( 'wp_ajax_fih_resume_queue', array( $this, 'ajax_resume_queue' ) );
 		add_action( 'wp_ajax_fih_dashboard_stats', array( $this, 'ajax_dashboard_stats' ) );
+		add_action( 'wp_ajax_fih_bulk_generate_all', array( $this, 'ajax_bulk_generate_all' ) );
 
 		// Handle bulk actions.
 		add_action( 'admin_post_fih_bulk_generate', array( $this, 'handle_bulk_generate' ) );
@@ -145,12 +153,35 @@ class FIH_Admin {
 	 * @since 1.0.0
 	 */
 	public function add_admin_menu() {
-		add_media_page(
+		// Add main menu page.
+		add_menu_page(
 			__( 'Featured Image Helper', 'featured-image-helper' ),
 			__( 'Featured Images', 'featured-image-helper' ),
 			'edit_posts',
 			$this->page_slug,
-			array( $this, 'render_admin_page' )
+			array( $this, 'render_dashboard_page' ),
+			'dashicons-format-image',
+			26
+		);
+
+		// Add Dashboard submenu.
+		add_submenu_page(
+			$this->page_slug,
+			__( 'Dashboard', 'featured-image-helper' ),
+			__( 'Dashboard', 'featured-image-helper' ),
+			'edit_posts',
+			$this->page_slug,
+			array( $this, 'render_dashboard_page' )
+		);
+
+		// Add Settings submenu.
+		add_submenu_page(
+			$this->page_slug,
+			__( 'Settings', 'featured-image-helper' ),
+			__( 'Settings', 'featured-image-helper' ),
+			'manage_options',
+			$this->settings_slug,
+			array( $this, 'render_settings_page' )
 		);
 	}
 
@@ -243,9 +274,9 @@ class FIH_Admin {
 	public function enqueue_admin_assets( $hook ) {
 		// Only enqueue on our plugin pages.
 		$allowed_pages = array(
-			'media_page_' . $this->page_slug,
+			'toplevel_page_' . $this->page_slug,
+			'featured-images_page_' . $this->settings_slug,
 			'index.php', // Dashboard.
-			'settings_page_featured-image-helper-settings',
 		);
 
 		if ( ! in_array( $hook, $allowed_pages, true ) ) {
@@ -292,11 +323,11 @@ class FIH_Admin {
 	}
 
 	/**
-	 * Render admin page.
+	 * Render dashboard page.
 	 *
 	 * @since 1.0.0
 	 */
-	public function render_admin_page() {
+	public function render_dashboard_page() {
 		if ( ! current_user_can( 'edit_posts' ) ) {
 			wp_die( esc_html__( 'You do not have sufficient permissions to access this page.', 'featured-image-helper' ) );
 		}
@@ -308,116 +339,150 @@ class FIH_Admin {
 
 		// Get posts without featured images.
 		$posts_query = $this->get_posts_without_images( $post_type, $paged, $per_page );
+		$stats       = $this->get_missing_images_stats();
 
 		?>
-		<div class="wrap">
-			<h1 class="wp-heading-inline"><?php esc_html_e( 'Posts Without Featured Images', 'featured-image-helper' ); ?></h1>
+		<div class="wrap fih-wrap">
+			<h1 class="fih-page-title"><?php esc_html_e( 'Featured Image Helper', 'featured-image-helper' ); ?></h1>
 
-			<form method="get" class="fih-filters">
-				<input type="hidden" name="page" value="<?php echo esc_attr( $this->page_slug ); ?>" />
-
-				<select name="post_type">
+			<!-- Stats Cards -->
+			<div class="fih-stats-grid">
+				<?php foreach ( $stats as $pt => $count ) : ?>
 					<?php
-					$enabled_post_types = get_option( 'fih_enabled_post_types', array( 'post' ) );
-					foreach ( $enabled_post_types as $pt ) {
-						$pt_obj = get_post_type_object( $pt );
-						?>
-						<option value="<?php echo esc_attr( $pt ); ?>" <?php selected( $post_type, $pt ); ?>>
-							<?php echo esc_html( $pt_obj->labels->name ); ?>
-						</option>
-						<?php
-					}
+					$pt_obj = get_post_type_object( $pt );
 					?>
-				</select>
+					<div class="fih-stat-card">
+						<div class="fih-stat-label"><?php echo esc_html( $pt_obj->labels->name ); ?></div>
+						<div class="fih-stat-value"><?php echo absint( $count ); ?></div>
+						<div class="fih-stat-description"><?php esc_html_e( 'without featured images', 'featured-image-helper' ); ?></div>
+					</div>
+				<?php endforeach; ?>
+			</div>
 
-				<?php submit_button( __( 'Filter', 'featured-image-helper' ), 'secondary', 'filter', false ); ?>
-			</form>
+			<!-- Filter and Bulk Actions -->
+			<div class="fih-toolbar">
+				<form method="get" class="fih-filters">
+					<input type="hidden" name="page" value="<?php echo esc_attr( $this->page_slug ); ?>" />
+					<select name="post_type" class="fih-select">
+						<?php
+						$enabled_post_types = get_option( 'fih_enabled_post_types', array( 'post' ) );
+						foreach ( $enabled_post_types as $pt ) {
+							$pt_obj = get_post_type_object( $pt );
+							?>
+							<option value="<?php echo esc_attr( $pt ); ?>" <?php selected( $post_type, $pt ); ?>>
+								<?php echo esc_html( $pt_obj->labels->name ); ?>
+							</option>
+							<?php
+						}
+						?>
+					</select>
+					<button type="submit" class="fih-button fih-button-secondary"><?php esc_html_e( 'Filter', 'featured-image-helper' ); ?></button>
+				</form>
 
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<div class="fih-bulk-actions">
+					<button type="button" class="fih-button fih-button-primary fih-bulk-generate-all" data-post-type="<?php echo esc_attr( $post_type ); ?>" data-nonce="<?php echo esc_attr( wp_create_nonce( 'fih_bulk_generate_all' ) ); ?>">
+						<?php esc_html_e( 'Generate All Featured Images', 'featured-image-helper' ); ?>
+					</button>
+				</div>
+			</div>
+
+			<!-- Posts Table -->
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" id="fih-posts-form">
 				<?php wp_nonce_field( 'fih_bulk_action', 'fih_bulk_nonce' ); ?>
 				<input type="hidden" name="action" value="fih_bulk_add_to_queue" />
 
-				<div class="tablenav top">
-					<div class="alignleft actions bulkactions">
-						<button type="submit" class="button action"><?php esc_html_e( 'Add Selected to Queue', 'featured-image-helper' ); ?></button>
+				<div class="fih-card">
+					<div class="fih-table-header">
+						<h2><?php esc_html_e( 'Posts & Pages Needing Featured Images', 'featured-image-helper' ); ?></h2>
+						<button type="submit" class="fih-button fih-button-secondary"><?php esc_html_e( 'Add Selected to Queue', 'featured-image-helper' ); ?></button>
 					</div>
-				</div>
 
-				<table class="wp-list-table widefat fixed striped">
-					<thead>
-						<tr>
-							<td class="check-column"><input type="checkbox" id="fih-select-all" /></td>
-							<th><?php esc_html_e( 'Title', 'featured-image-helper' ); ?></th>
-							<th><?php esc_html_e( 'Post Type', 'featured-image-helper' ); ?></th>
-							<th><?php esc_html_e( 'Date', 'featured-image-helper' ); ?></th>
-							<th><?php esc_html_e( 'Actions', 'featured-image-helper' ); ?></th>
-						</tr>
-					</thead>
-					<tbody>
-						<?php if ( $posts_query->have_posts() ) : ?>
-							<?php while ( $posts_query->have_posts() ) : ?>
-								<?php
-								$posts_query->the_post();
-								$post_id = get_the_ID();
-								?>
-								<tr>
-									<th scope="row" class="check-column">
-										<input type="checkbox" name="post_ids[]" value="<?php echo esc_attr( $post_id ); ?>" />
-									</th>
-									<td>
-										<strong>
-											<a href="<?php echo esc_url( get_edit_post_link( $post_id ) ); ?>">
+					<table class="fih-table">
+						<thead>
+							<tr>
+								<th class="fih-table-checkbox">
+									<input type="checkbox" id="fih-select-all" />
+								</th>
+								<th class="fih-table-title"><?php esc_html_e( 'Title', 'featured-image-helper' ); ?></th>
+								<th class="fih-table-type"><?php esc_html_e( 'Type', 'featured-image-helper' ); ?></th>
+								<th class="fih-table-date"><?php esc_html_e( 'Date', 'featured-image-helper' ); ?></th>
+								<th class="fih-table-actions"><?php esc_html_e( 'Actions', 'featured-image-helper' ); ?></th>
+							</tr>
+						</thead>
+						<tbody>
+							<?php if ( $posts_query->have_posts() ) : ?>
+								<?php while ( $posts_query->have_posts() ) : ?>
+									<?php
+									$posts_query->the_post();
+									$post_id = get_the_ID();
+									?>
+									<tr>
+										<td class="fih-table-checkbox">
+											<input type="checkbox" name="post_ids[]" value="<?php echo esc_attr( $post_id ); ?>" />
+										</td>
+										<td class="fih-table-title">
+											<a href="<?php echo esc_url( get_edit_post_link( $post_id ) ); ?>" class="fih-post-link">
 												<?php the_title(); ?>
 											</a>
-										</strong>
-									</td>
-									<td>
-										<?php
-										$pt_obj = get_post_type_object( get_post_type() );
-										echo esc_html( $pt_obj->labels->singular_name );
-										?>
-									</td>
-									<td><?php echo esc_html( get_the_date() ); ?></td>
-									<td>
-										<button type="button" class="button fih-generate-single" data-post-id="<?php echo esc_attr( $post_id ); ?>" data-nonce="<?php echo esc_attr( wp_create_nonce( 'fih_generate_' . $post_id ) ); ?>">
-											<?php esc_html_e( 'Generate Now', 'featured-image-helper' ); ?>
-										</button>
+										</td>
+										<td class="fih-table-type">
+											<?php
+											$pt_obj = get_post_type_object( get_post_type() );
+											echo esc_html( $pt_obj->labels->singular_name );
+											?>
+										</td>
+										<td class="fih-table-date"><?php echo esc_html( get_the_date() ); ?></td>
+										<td class="fih-table-actions">
+											<button type="button" class="fih-button fih-button-sm fih-generate-single" data-post-id="<?php echo esc_attr( $post_id ); ?>" data-nonce="<?php echo esc_attr( wp_create_nonce( 'fih_generate_' . $post_id ) ); ?>">
+												<?php esc_html_e( 'Generate', 'featured-image-helper' ); ?>
+											</button>
+										</td>
+									</tr>
+								<?php endwhile; ?>
+								<?php wp_reset_postdata(); ?>
+							<?php else : ?>
+								<tr>
+									<td colspan="5" class="fih-table-empty">
+										<?php esc_html_e( 'No posts found without featured images.', 'featured-image-helper' ); ?>
 									</td>
 								</tr>
-							<?php endwhile; ?>
-							<?php wp_reset_postdata(); ?>
-						<?php else : ?>
-							<tr>
-								<td colspan="5"><?php esc_html_e( 'No posts found without featured images.', 'featured-image-helper' ); ?></td>
-							</tr>
-						<?php endif; ?>
-					</tbody>
-				</table>
+							<?php endif; ?>
+						</tbody>
+					</table>
 
-				<div class="tablenav bottom">
 					<?php
 					$total_pages = $posts_query->max_num_pages;
-					if ( $total_pages > 1 ) {
-						$page_links = paginate_links(
-							array(
-								'base'      => add_query_arg( 'paged', '%#%' ),
-								'format'    => '',
-								'prev_text' => __( '&laquo;', 'featured-image-helper' ),
-								'next_text' => __( '&raquo;', 'featured-image-helper' ),
-								'total'     => $total_pages,
-								'current'   => $paged,
-							)
-						);
+					if ( $total_pages > 1 ) :
+						?>
+						<div class="fih-pagination">
+							<?php
+							$page_links = paginate_links(
+								array(
+									'base'      => add_query_arg( 'paged', '%#%' ),
+									'format'    => '',
+									'prev_text' => __( '← Previous', 'featured-image-helper' ),
+									'next_text' => __( 'Next →', 'featured-image-helper' ),
+									'total'     => $total_pages,
+									'current'   => $paged,
+									'type'      => 'array',
+								)
+							);
 
-						if ( $page_links ) {
-							echo '<div class="tablenav-pages">' . wp_kses_post( $page_links ) . '</div>';
-						}
-					}
-					?>
+							if ( $page_links ) {
+								echo '<div class="fih-pagination-links">';
+								foreach ( $page_links as $link ) {
+									echo wp_kses_post( $link );
+								}
+								echo '</div>';
+							}
+							?>
+						</div>
+					<?php endif; ?>
 				</div>
 			</form>
 
-			<div class="fih-queue-status" style="margin-top: 30px;">
+			<!-- Queue Status -->
+			<div class="fih-card fih-queue-card">
 				<h2><?php esc_html_e( 'Queue Status', 'featured-image-helper' ); ?></h2>
 				<div class="fih-queue-stats" data-nonce="<?php echo esc_attr( wp_create_nonce( 'fih_queue_stats' ) ); ?>">
 					<?php $this->render_queue_stats(); ?>
@@ -436,34 +501,36 @@ class FIH_Admin {
 		$queue = FIH_Core::get_instance()->get_queue();
 		$stats = $queue->get_stats();
 		?>
-		<table class="widefat">
-			<tr>
-				<td><?php esc_html_e( 'Pending:', 'featured-image-helper' ); ?></td>
-				<td><strong><?php echo absint( $stats['pending'] ); ?></strong></td>
-			</tr>
-			<tr>
-				<td><?php esc_html_e( 'Processing:', 'featured-image-helper' ); ?></td>
-				<td><strong><?php echo absint( $stats['processing'] ); ?></strong></td>
-			</tr>
-			<tr>
-				<td><?php esc_html_e( 'Completed:', 'featured-image-helper' ); ?></td>
-				<td><strong><?php echo absint( $stats['completed'] ); ?></strong></td>
-			</tr>
-			<tr>
-				<td><?php esc_html_e( 'Failed:', 'featured-image-helper' ); ?></td>
-				<td><strong><?php echo absint( $stats['failed'] ); ?></strong></td>
-			</tr>
-		</table>
+		<div class="fih-queue-grid">
+			<div class="fih-queue-stat">
+				<div class="fih-queue-stat-label"><?php esc_html_e( 'Pending', 'featured-image-helper' ); ?></div>
+				<div class="fih-queue-stat-value"><?php echo absint( $stats['pending'] ); ?></div>
+			</div>
+			<div class="fih-queue-stat">
+				<div class="fih-queue-stat-label"><?php esc_html_e( 'Processing', 'featured-image-helper' ); ?></div>
+				<div class="fih-queue-stat-value"><?php echo absint( $stats['processing'] ); ?></div>
+			</div>
+			<div class="fih-queue-stat">
+				<div class="fih-queue-stat-label"><?php esc_html_e( 'Completed', 'featured-image-helper' ); ?></div>
+				<div class="fih-queue-stat-value fih-queue-stat-success"><?php echo absint( $stats['completed'] ); ?></div>
+			</div>
+			<div class="fih-queue-stat">
+				<div class="fih-queue-stat-label"><?php esc_html_e( 'Failed', 'featured-image-helper' ); ?></div>
+				<div class="fih-queue-stat-value fih-queue-stat-error"><?php echo absint( $stats['failed'] ); ?></div>
+			</div>
+		</div>
 
-		<?php if ( $queue->is_paused() ) : ?>
-			<button type="button" class="button fih-resume-queue" data-nonce="<?php echo esc_attr( wp_create_nonce( 'fih_resume_queue' ) ); ?>">
-				<?php esc_html_e( 'Resume Queue', 'featured-image-helper' ); ?>
-			</button>
-		<?php else : ?>
-			<button type="button" class="button fih-pause-queue" data-nonce="<?php echo esc_attr( wp_create_nonce( 'fih_pause_queue' ) ); ?>">
-				<?php esc_html_e( 'Pause Queue', 'featured-image-helper' ); ?>
-			</button>
-		<?php endif; ?>
+		<div class="fih-queue-controls">
+			<?php if ( $queue->is_paused() ) : ?>
+				<button type="button" class="fih-button fih-button-primary fih-resume-queue" data-nonce="<?php echo esc_attr( wp_create_nonce( 'fih_resume_queue' ) ); ?>">
+					<?php esc_html_e( 'Resume Queue', 'featured-image-helper' ); ?>
+				</button>
+			<?php else : ?>
+				<button type="button" class="fih-button fih-button-secondary fih-pause-queue" data-nonce="<?php echo esc_attr( wp_create_nonce( 'fih_pause_queue' ) ); ?>">
+					<?php esc_html_e( 'Pause Queue', 'featured-image-helper' ); ?>
+				</button>
+			<?php endif; ?>
+		</div>
 		<?php
 	}
 
@@ -647,5 +714,464 @@ class FIH_Admin {
 		$stats = $this->get_missing_images_stats();
 
 		wp_send_json_success( $stats );
+	}
+
+	/**
+	 * AJAX: Bulk generate all featured images.
+	 *
+	 * @since 1.0.0
+	 */
+	public function ajax_bulk_generate_all() {
+		// Verify nonce.
+		check_ajax_referer( 'fih_ajax_nonce', 'nonce' );
+
+		// Check capabilities.
+		if ( ! current_user_can( 'edit_posts' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'featured-image-helper' ) ) );
+		}
+
+		$post_type = isset( $_POST['post_type'] ) ? sanitize_text_field( wp_unslash( $_POST['post_type'] ) ) : 'post';
+
+		// Get all posts without featured images.
+		$args = array(
+			'post_type'      => $post_type,
+			'post_status'    => 'publish',
+			'posts_per_page' => -1,
+			'fields'         => 'ids',
+			'meta_query'     => array(
+				array(
+					'key'     => '_thumbnail_id',
+					'compare' => 'NOT EXISTS',
+				),
+			),
+		);
+
+		$post_ids = get_posts( $args );
+
+		if ( empty( $post_ids ) ) {
+			wp_send_json_error( array( 'message' => __( 'No posts found without featured images.', 'featured-image-helper' ) ) );
+		}
+
+		// Add all posts to queue.
+		$queue = FIH_Core::get_instance()->get_queue();
+		$added = $queue->add_bulk_to_queue( $post_ids );
+
+		wp_send_json_success(
+			array(
+				'message' => sprintf(
+					/* translators: %d: number of posts added */
+					__( '%d posts added to the queue for featured image generation.', 'featured-image-helper' ),
+					$added
+				),
+				'count'   => $added,
+			)
+		);
+	}
+
+	/**
+	 * Render settings page.
+	 *
+	 * @since 1.0.0
+	 */
+	public function render_settings_page() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have sufficient permissions to access this page.', 'featured-image-helper' ) );
+		}
+
+		// Get settings instance to register settings.
+		$settings = FIH_Core::get_instance()->get_settings();
+
+		// Handle settings save.
+		if ( isset( $_POST['fih_save_settings'] ) && check_admin_referer( 'fih_settings_nonce', 'fih_settings_nonce' ) ) {
+			$this->save_settings();
+		}
+
+		$active_tab = isset( $_GET['tab'] ) ? sanitize_text_field( wp_unslash( $_GET['tab'] ) ) : 'api';
+		?>
+		<div class="wrap fih-wrap fih-settings-wrap">
+			<h1 class="fih-page-title"><?php esc_html_e( 'Settings', 'featured-image-helper' ); ?></h1>
+
+			<div class="fih-tabs">
+				<a href="?page=<?php echo esc_attr( $this->settings_slug ); ?>&tab=api" class="fih-tab <?php echo 'api' === $active_tab ? 'fih-tab-active' : ''; ?>">
+					<?php esc_html_e( 'API Configuration', 'featured-image-helper' ); ?>
+				</a>
+				<a href="?page=<?php echo esc_attr( $this->settings_slug ); ?>&tab=generation" class="fih-tab <?php echo 'generation' === $active_tab ? 'fih-tab-active' : ''; ?>">
+					<?php esc_html_e( 'Generation', 'featured-image-helper' ); ?>
+				</a>
+				<a href="?page=<?php echo esc_attr( $this->settings_slug ); ?>&tab=autofill" class="fih-tab <?php echo 'autofill' === $active_tab ? 'fih-tab-active' : ''; ?>">
+					<?php esc_html_e( 'Auto-Fill', 'featured-image-helper' ); ?>
+				</a>
+				<a href="?page=<?php echo esc_attr( $this->settings_slug ); ?>&tab=fallback" class="fih-tab <?php echo 'fallback' === $active_tab ? 'fih-tab-active' : ''; ?>">
+					<?php esc_html_e( 'Fallback', 'featured-image-helper' ); ?>
+				</a>
+				<a href="?page=<?php echo esc_attr( $this->settings_slug ); ?>&tab=advanced" class="fih-tab <?php echo 'advanced' === $active_tab ? 'fih-tab-active' : ''; ?>">
+					<?php esc_html_e( 'Advanced', 'featured-image-helper' ); ?>
+				</a>
+			</div>
+
+			<div class="fih-card fih-settings-card">
+				<?php
+				switch ( $active_tab ) {
+					case 'api':
+						$this->render_api_settings_tab();
+						break;
+					case 'generation':
+						$this->render_generation_settings_tab();
+						break;
+					case 'autofill':
+						$this->render_autofill_settings_tab();
+						break;
+					case 'fallback':
+						$this->render_fallback_settings_tab();
+						break;
+					case 'advanced':
+						$this->render_advanced_settings_tab();
+						break;
+					default:
+						$this->render_api_settings_tab();
+				}
+				?>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render API settings tab.
+	 *
+	 * @since 1.0.0
+	 */
+	private function render_api_settings_tab() {
+		?>
+		<form method="post" action="" class="fih-settings-form">
+			<?php wp_nonce_field( 'fih_settings_nonce', 'fih_settings_nonce' ); ?>
+			<input type="hidden" name="fih_save_settings" value="api" />
+
+			<div class="fih-form-group">
+				<label for="fih_gemini_api_key" class="fih-label">
+					<?php esc_html_e( 'Gemini API Key', 'featured-image-helper' ); ?>
+					<span class="fih-required">*</span>
+				</label>
+				<input type="password" id="fih_gemini_api_key" name="fih_gemini_api_key" value="" class="fih-input" placeholder="<?php esc_attr_e( 'Enter your Gemini API key', 'featured-image-helper' ); ?>" />
+				<p class="fih-help-text">
+					<?php esc_html_e( 'Get your API key from Google AI Studio.', 'featured-image-helper' ); ?>
+					<a href="https://makersuite.google.com/app/apikey" target="_blank" class="fih-link"><?php esc_html_e( 'Get API Key', 'featured-image-helper' ); ?></a>
+				</p>
+			</div>
+
+			<div class="fih-form-group">
+				<label for="fih_unsplash_api_key" class="fih-label">
+					<?php esc_html_e( 'Unsplash API Key', 'featured-image-helper' ); ?>
+					<span class="fih-optional"><?php esc_html_e( '(Optional)', 'featured-image-helper' ); ?></span>
+				</label>
+				<input type="text" id="fih_unsplash_api_key" name="fih_unsplash_api_key" value="<?php echo esc_attr( get_option( 'fih_unsplash_api_key', '' ) ); ?>" class="fih-input" />
+				<p class="fih-help-text"><?php esc_html_e( 'For smart suggestions from Unsplash.', 'featured-image-helper' ); ?></p>
+			</div>
+
+			<div class="fih-form-group">
+				<label for="fih_pexels_api_key" class="fih-label">
+					<?php esc_html_e( 'Pexels API Key', 'featured-image-helper' ); ?>
+					<span class="fih-optional"><?php esc_html_e( '(Optional)', 'featured-image-helper' ); ?></span>
+				</label>
+				<input type="text" id="fih_pexels_api_key" name="fih_pexels_api_key" value="<?php echo esc_attr( get_option( 'fih_pexels_api_key', '' ) ); ?>" class="fih-input" />
+				<p class="fih-help-text"><?php esc_html_e( 'For smart suggestions from Pexels.', 'featured-image-helper' ); ?></p>
+			</div>
+
+			<div class="fih-form-actions">
+				<button type="submit" class="fih-button fih-button-primary"><?php esc_html_e( 'Save Settings', 'featured-image-helper' ); ?></button>
+			</div>
+		</form>
+		<?php
+	}
+
+	/**
+	 * Render generation settings tab.
+	 *
+	 * @since 1.0.0
+	 */
+	private function render_generation_settings_tab() {
+		?>
+		<form method="post" action="" class="fih-settings-form">
+			<?php wp_nonce_field( 'fih_settings_nonce', 'fih_settings_nonce' ); ?>
+			<input type="hidden" name="fih_save_settings" value="generation" />
+
+			<div class="fih-form-group">
+				<label for="fih_default_prompt_style" class="fih-label"><?php esc_html_e( 'Default Prompt Style', 'featured-image-helper' ); ?></label>
+				<select id="fih_default_prompt_style" name="fih_default_prompt_style" class="fih-select">
+					<option value="photographic" <?php selected( get_option( 'fih_default_prompt_style', 'photographic' ), 'photographic' ); ?>><?php esc_html_e( 'Photographic', 'featured-image-helper' ); ?></option>
+					<option value="illustration" <?php selected( get_option( 'fih_default_prompt_style' ), 'illustration' ); ?>><?php esc_html_e( 'Illustration', 'featured-image-helper' ); ?></option>
+					<option value="abstract" <?php selected( get_option( 'fih_default_prompt_style' ), 'abstract' ); ?>><?php esc_html_e( 'Abstract', 'featured-image-helper' ); ?></option>
+					<option value="minimal" <?php selected( get_option( 'fih_default_prompt_style' ), 'minimal' ); ?>><?php esc_html_e( 'Minimal', 'featured-image-helper' ); ?></option>
+				</select>
+			</div>
+
+			<div class="fih-form-group">
+				<label for="fih_content_source" class="fih-label"><?php esc_html_e( 'Content Source for Prompt', 'featured-image-helper' ); ?></label>
+				<select id="fih_content_source" name="fih_content_source" class="fih-select">
+					<option value="title" <?php selected( get_option( 'fih_content_source', 'title' ), 'title' ); ?>><?php esc_html_e( 'Post Title', 'featured-image-helper' ); ?></option>
+					<option value="excerpt" <?php selected( get_option( 'fih_content_source' ), 'excerpt' ); ?>><?php esc_html_e( 'Post Excerpt', 'featured-image-helper' ); ?></option>
+					<option value="content" <?php selected( get_option( 'fih_content_source' ), 'content' ); ?>><?php esc_html_e( 'Post Content (first 100 words)', 'featured-image-helper' ); ?></option>
+				</select>
+			</div>
+
+			<div class="fih-form-group">
+				<label for="fih_default_image_size" class="fih-label"><?php esc_html_e( 'Default Image Size', 'featured-image-helper' ); ?></label>
+				<input type="text" id="fih_default_image_size" name="fih_default_image_size" value="<?php echo esc_attr( get_option( 'fih_default_image_size', '1200x630' ) ); ?>" class="fih-input" />
+				<p class="fih-help-text"><?php esc_html_e( 'Format: WIDTHxHEIGHT (e.g., 1200x630)', 'featured-image-helper' ); ?></p>
+			</div>
+
+			<div class="fih-form-group">
+				<label for="fih_custom_prompt_template" class="fih-label"><?php esc_html_e( 'Custom Prompt Template', 'featured-image-helper' ); ?></label>
+				<textarea id="fih_custom_prompt_template" name="fih_custom_prompt_template" rows="5" class="fih-textarea"><?php echo esc_textarea( get_option( 'fih_custom_prompt_template', '' ) ); ?></textarea>
+				<p class="fih-help-text"><?php esc_html_e( 'Use {content} as placeholder for post content. Leave empty to use default templates.', 'featured-image-helper' ); ?></p>
+			</div>
+
+			<div class="fih-form-actions">
+				<button type="submit" class="fih-button fih-button-primary"><?php esc_html_e( 'Save Settings', 'featured-image-helper' ); ?></button>
+			</div>
+		</form>
+		<?php
+	}
+
+	/**
+	 * Render auto-fill settings tab.
+	 *
+	 * @since 1.0.0
+	 */
+	private function render_autofill_settings_tab() {
+		?>
+		<form method="post" action="" class="fih-settings-form">
+			<?php wp_nonce_field( 'fih_settings_nonce', 'fih_settings_nonce' ); ?>
+			<input type="hidden" name="fih_save_settings" value="autofill" />
+
+			<div class="fih-form-group">
+				<label class="fih-checkbox-label">
+					<input type="checkbox" name="fih_auto_generate_enabled" value="1" <?php checked( get_option( 'fih_auto_generate_enabled', false ), true ); ?> />
+					<span><?php esc_html_e( 'Enable Auto-Generation', 'featured-image-helper' ); ?></span>
+				</label>
+				<p class="fih-help-text"><?php esc_html_e( 'Automatically generate featured images for new posts.', 'featured-image-helper' ); ?></p>
+			</div>
+
+			<div class="fih-form-group">
+				<label for="fih_auto_generate_trigger" class="fih-label"><?php esc_html_e( 'Generation Trigger', 'featured-image-helper' ); ?></label>
+				<select id="fih_auto_generate_trigger" name="fih_auto_generate_trigger" class="fih-select">
+					<option value="manual" <?php selected( get_option( 'fih_auto_generate_trigger', 'manual' ), 'manual' ); ?>><?php esc_html_e( 'Manual Only', 'featured-image-helper' ); ?></option>
+					<option value="publish" <?php selected( get_option( 'fih_auto_generate_trigger' ), 'publish' ); ?>><?php esc_html_e( 'On Post Publish', 'featured-image-helper' ); ?></option>
+					<option value="update" <?php selected( get_option( 'fih_auto_generate_trigger' ), 'update' ); ?>><?php esc_html_e( 'On Post Update', 'featured-image-helper' ); ?></option>
+				</select>
+			</div>
+
+			<div class="fih-form-group">
+				<label class="fih-label"><?php esc_html_e( 'Enabled Post Types', 'featured-image-helper' ); ?></label>
+				<?php
+				$post_types         = get_post_types( array( 'public' => true ), 'objects' );
+				$enabled_post_types = get_option( 'fih_enabled_post_types', array( 'post' ) );
+
+				foreach ( $post_types as $post_type ) {
+					if ( 'attachment' === $post_type->name ) {
+						continue;
+					}
+					?>
+					<label class="fih-checkbox-label">
+						<input type="checkbox" name="fih_enabled_post_types[]" value="<?php echo esc_attr( $post_type->name ); ?>" <?php checked( in_array( $post_type->name, $enabled_post_types, true ) ); ?> />
+						<span><?php echo esc_html( $post_type->labels->name ); ?></span>
+					</label>
+					<?php
+				}
+				?>
+			</div>
+
+			<div class="fih-form-actions">
+				<button type="submit" class="fih-button fih-button-primary"><?php esc_html_e( 'Save Settings', 'featured-image-helper' ); ?></button>
+			</div>
+		</form>
+		<?php
+	}
+
+	/**
+	 * Render fallback settings tab.
+	 *
+	 * @since 1.0.0
+	 */
+	private function render_fallback_settings_tab() {
+		$default_image_id = get_option( 'fih_default_image_id', 0 );
+		?>
+		<form method="post" action="" class="fih-settings-form">
+			<?php wp_nonce_field( 'fih_settings_nonce', 'fih_settings_nonce' ); ?>
+			<input type="hidden" name="fih_save_settings" value="fallback" />
+
+			<div class="fih-form-group">
+				<label for="fih_default_image_id" class="fih-label"><?php esc_html_e( 'Default Fallback Image', 'featured-image-helper' ); ?></label>
+				<div class="fih-image-preview">
+					<?php
+					if ( $default_image_id ) {
+						echo wp_get_attachment_image( $default_image_id, 'thumbnail' );
+					}
+					?>
+				</div>
+				<input type="hidden" id="fih_default_image_id" name="fih_default_image_id" value="<?php echo esc_attr( $default_image_id ); ?>" />
+				<div class="fih-button-group">
+					<button type="button" class="fih-button fih-button-secondary fih-upload-image"><?php esc_html_e( 'Select Image', 'featured-image-helper' ); ?></button>
+					<button type="button" class="fih-button fih-button-secondary fih-remove-image" <?php echo $default_image_id ? '' : 'style="display:none;"'; ?>><?php esc_html_e( 'Remove Image', 'featured-image-helper' ); ?></button>
+				</div>
+			</div>
+
+			<div class="fih-form-group">
+				<label class="fih-checkbox-label">
+					<input type="checkbox" name="fih_use_first_image" value="1" <?php checked( get_option( 'fih_use_first_image', false ), true ); ?> />
+					<span><?php esc_html_e( 'Use First Image in Content', 'featured-image-helper' ); ?></span>
+				</label>
+				<p class="fih-help-text"><?php esc_html_e( 'Try to use the first image from post content as fallback.', 'featured-image-helper' ); ?></p>
+			</div>
+
+			<div class="fih-form-actions">
+				<button type="submit" class="fih-button fih-button-primary"><?php esc_html_e( 'Save Settings', 'featured-image-helper' ); ?></button>
+			</div>
+		</form>
+		<?php
+	}
+
+	/**
+	 * Render advanced settings tab.
+	 *
+	 * @since 1.0.0
+	 */
+	private function render_advanced_settings_tab() {
+		?>
+		<form method="post" action="" class="fih-settings-form">
+			<?php wp_nonce_field( 'fih_settings_nonce', 'fih_settings_nonce' ); ?>
+			<input type="hidden" name="fih_save_settings" value="advanced" />
+
+			<div class="fih-form-group">
+				<label for="fih_batch_size" class="fih-label"><?php esc_html_e( 'Batch Size', 'featured-image-helper' ); ?></label>
+				<input type="number" id="fih_batch_size" name="fih_batch_size" value="<?php echo esc_attr( get_option( 'fih_batch_size', 5 ) ); ?>" min="1" max="20" class="fih-input" />
+				<p class="fih-help-text"><?php esc_html_e( 'Number of images to process per batch (1-20).', 'featured-image-helper' ); ?></p>
+			</div>
+
+			<div class="fih-form-group">
+				<label for="fih_queue_interval" class="fih-label"><?php esc_html_e( 'Queue Processing Interval', 'featured-image-helper' ); ?></label>
+				<input type="number" id="fih_queue_interval" name="fih_queue_interval" value="<?php echo esc_attr( get_option( 'fih_queue_interval', 5 ) ); ?>" min="1" max="60" class="fih-input" />
+				<p class="fih-help-text"><?php esc_html_e( 'How often the queue should be processed (1-60 minutes).', 'featured-image-helper' ); ?></p>
+			</div>
+
+			<div class="fih-form-group">
+				<label for="fih_log_retention_days" class="fih-label"><?php esc_html_e( 'Log Retention', 'featured-image-helper' ); ?></label>
+				<input type="number" id="fih_log_retention_days" name="fih_log_retention_days" value="<?php echo esc_attr( get_option( 'fih_log_retention_days', 7 ) ); ?>" min="1" max="90" class="fih-input" />
+				<p class="fih-help-text"><?php esc_html_e( 'How long to keep logs before auto-deletion (1-90 days).', 'featured-image-helper' ); ?></p>
+			</div>
+
+			<div class="fih-form-group">
+				<label class="fih-checkbox-label">
+					<input type="checkbox" name="fih_debug_logging_enabled" value="1" <?php checked( get_option( 'fih_debug_logging_enabled', false ), true ); ?> />
+					<span><?php esc_html_e( 'Enable Debug Logging', 'featured-image-helper' ); ?></span>
+				</label>
+			</div>
+
+			<div class="fih-form-group">
+				<label class="fih-checkbox-label">
+					<input type="checkbox" name="fih_send_completion_email" value="1" <?php checked( get_option( 'fih_send_completion_email', true ), true ); ?> />
+					<span><?php esc_html_e( 'Send Completion Email', 'featured-image-helper' ); ?></span>
+				</label>
+				<p class="fih-help-text"><?php esc_html_e( 'Send email notification when batch processing completes.', 'featured-image-helper' ); ?></p>
+			</div>
+
+			<div class="fih-form-actions">
+				<button type="submit" class="fih-button fih-button-primary"><?php esc_html_e( 'Save Settings', 'featured-image-helper' ); ?></button>
+			</div>
+		</form>
+		<?php
+	}
+
+	/**
+	 * Save settings.
+	 *
+	 * @since 1.0.0
+	 */
+	private function save_settings() {
+		if ( ! isset( $_POST['fih_save_settings'] ) ) {
+			return;
+		}
+
+		$tab = sanitize_text_field( wp_unslash( $_POST['fih_save_settings'] ) );
+
+		switch ( $tab ) {
+			case 'api':
+				if ( isset( $_POST['fih_gemini_api_key'] ) ) {
+					$api_key = sanitize_text_field( wp_unslash( $_POST['fih_gemini_api_key'] ) );
+					if ( ! empty( $api_key ) ) {
+						$gemini = FIH_Core::get_instance()->get_gemini();
+						update_option( 'fih_gemini_api_key', $gemini->encrypt_api_key( $api_key ) );
+					}
+				}
+				if ( isset( $_POST['fih_unsplash_api_key'] ) ) {
+					update_option( 'fih_unsplash_api_key', sanitize_text_field( wp_unslash( $_POST['fih_unsplash_api_key'] ) ) );
+				}
+				if ( isset( $_POST['fih_pexels_api_key'] ) ) {
+					update_option( 'fih_pexels_api_key', sanitize_text_field( wp_unslash( $_POST['fih_pexels_api_key'] ) ) );
+				}
+				break;
+
+			case 'generation':
+				if ( isset( $_POST['fih_default_prompt_style'] ) ) {
+					update_option( 'fih_default_prompt_style', sanitize_text_field( wp_unslash( $_POST['fih_default_prompt_style'] ) ) );
+				}
+				if ( isset( $_POST['fih_content_source'] ) ) {
+					update_option( 'fih_content_source', sanitize_text_field( wp_unslash( $_POST['fih_content_source'] ) ) );
+				}
+				if ( isset( $_POST['fih_default_image_size'] ) ) {
+					update_option( 'fih_default_image_size', sanitize_text_field( wp_unslash( $_POST['fih_default_image_size'] ) ) );
+				}
+				if ( isset( $_POST['fih_custom_prompt_template'] ) ) {
+					update_option( 'fih_custom_prompt_template', sanitize_textarea_field( wp_unslash( $_POST['fih_custom_prompt_template'] ) ) );
+				}
+				break;
+
+			case 'autofill':
+				update_option( 'fih_auto_generate_enabled', isset( $_POST['fih_auto_generate_enabled'] ) );
+				if ( isset( $_POST['fih_auto_generate_trigger'] ) ) {
+					update_option( 'fih_auto_generate_trigger', sanitize_text_field( wp_unslash( $_POST['fih_auto_generate_trigger'] ) ) );
+				}
+				if ( isset( $_POST['fih_enabled_post_types'] ) ) {
+					$post_types = array_map( 'sanitize_text_field', wp_unslash( $_POST['fih_enabled_post_types'] ) );
+					update_option( 'fih_enabled_post_types', $post_types );
+				} else {
+					update_option( 'fih_enabled_post_types', array() );
+				}
+				break;
+
+			case 'fallback':
+				if ( isset( $_POST['fih_default_image_id'] ) ) {
+					update_option( 'fih_default_image_id', absint( $_POST['fih_default_image_id'] ) );
+				}
+				update_option( 'fih_use_first_image', isset( $_POST['fih_use_first_image'] ) );
+				break;
+
+			case 'advanced':
+				if ( isset( $_POST['fih_batch_size'] ) ) {
+					update_option( 'fih_batch_size', absint( $_POST['fih_batch_size'] ) );
+				}
+				if ( isset( $_POST['fih_queue_interval'] ) ) {
+					update_option( 'fih_queue_interval', absint( $_POST['fih_queue_interval'] ) );
+				}
+				if ( isset( $_POST['fih_log_retention_days'] ) ) {
+					update_option( 'fih_log_retention_days', absint( $_POST['fih_log_retention_days'] ) );
+				}
+				update_option( 'fih_debug_logging_enabled', isset( $_POST['fih_debug_logging_enabled'] ) );
+				update_option( 'fih_send_completion_email', isset( $_POST['fih_send_completion_email'] ) );
+				break;
+		}
+
+		// Redirect to avoid form resubmission.
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'              => $this->settings_slug,
+					'tab'               => $tab,
+					'settings-updated' => 'true',
+				),
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
 	}
 }
