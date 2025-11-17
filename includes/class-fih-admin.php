@@ -342,8 +342,8 @@ class FIH_Admin {
 		$stats       = $this->get_missing_images_stats();
 
 		?>
-		<div class="wrap fih-wrap">
-			<h1 class="fih-page-title"><?php esc_html_e( 'Featured Image Helper', 'featured-image-helper' ); ?></h1>
+		<div class="wrap">
+			<h1><?php esc_html_e( 'Featured Image Helper', 'featured-image-helper' ); ?></h1>
 
 			<!-- Stats Cards -->
 			<div class="fih-stats-grid">
@@ -351,19 +351,22 @@ class FIH_Admin {
 					<?php
 					$pt_obj = get_post_type_object( $pt );
 					?>
-					<div class="fih-stat-card">
-						<div class="fih-stat-label"><?php echo esc_html( $pt_obj->labels->name ); ?></div>
-						<div class="fih-stat-value"><?php echo absint( $count ); ?></div>
-						<div class="fih-stat-description"><?php esc_html_e( 'without featured images', 'featured-image-helper' ); ?></div>
+					<div class="postbox">
+						<div class="inside">
+							<div class="main">
+								<p class="fih-stat-count"><?php echo absint( $count ); ?></p>
+								<p><?php echo esc_html( $pt_obj->labels->name ); ?> <?php esc_html_e( 'without featured images', 'featured-image-helper' ); ?></p>
+							</div>
+						</div>
 					</div>
 				<?php endforeach; ?>
 			</div>
 
 			<!-- Filter and Bulk Actions -->
 			<div class="fih-toolbar">
-				<form method="get" class="fih-filters">
+				<form method="get" style="display: inline-block;">
 					<input type="hidden" name="page" value="<?php echo esc_attr( $this->page_slug ); ?>" />
-					<select name="post_type" class="fih-select">
+					<select name="post_type">
 						<?php
 						$enabled_post_types = get_option( 'fih_enabled_post_types', array( 'post' ) );
 						foreach ( $enabled_post_types as $pt ) {
@@ -376,14 +379,12 @@ class FIH_Admin {
 						}
 						?>
 					</select>
-					<button type="submit" class="fih-button fih-button-secondary"><?php esc_html_e( 'Filter', 'featured-image-helper' ); ?></button>
+					<button type="submit" class="button"><?php esc_html_e( 'Filter', 'featured-image-helper' ); ?></button>
 				</form>
 
-				<div class="fih-bulk-actions">
-					<button type="button" class="fih-button fih-button-primary fih-bulk-generate-all" data-post-type="<?php echo esc_attr( $post_type ); ?>" data-nonce="<?php echo esc_attr( wp_create_nonce( 'fih_bulk_generate_all' ) ); ?>">
-						<?php esc_html_e( 'Generate All Featured Images', 'featured-image-helper' ); ?>
-					</button>
-				</div>
+				<button type="button" class="button button-primary fih-bulk-generate-all" data-post-type="<?php echo esc_attr( $post_type ); ?>" data-nonce="<?php echo esc_attr( wp_create_nonce( 'fih_bulk_generate_all' ) ); ?>" style="margin-left: 10px;">
+					<?php esc_html_e( 'Generate All Featured Images', 'featured-image-helper' ); ?>
+				</button>
 			</div>
 
 			<!-- Posts Table -->
@@ -391,101 +392,106 @@ class FIH_Admin {
 				<?php wp_nonce_field( 'fih_bulk_action', 'fih_bulk_nonce' ); ?>
 				<input type="hidden" name="action" value="fih_bulk_add_to_queue" />
 
-				<div class="fih-card">
-					<div class="fih-table-header">
+				<div class="postbox" style="margin-top: 20px;">
+					<div class="postbox-header">
 						<h2><?php esc_html_e( 'Posts & Pages Needing Featured Images', 'featured-image-helper' ); ?></h2>
-						<button type="submit" class="fih-button fih-button-secondary"><?php esc_html_e( 'Add Selected to Queue', 'featured-image-helper' ); ?></button>
+						<div class="postbox-title-action">
+							<button type="submit" class="button"><?php esc_html_e( 'Add Selected to Queue', 'featured-image-helper' ); ?></button>
+						</div>
 					</div>
 
-					<table class="fih-table">
-						<thead>
-							<tr>
-								<th class="fih-table-checkbox">
-									<input type="checkbox" id="fih-select-all" />
-								</th>
-								<th class="fih-table-title"><?php esc_html_e( 'Title', 'featured-image-helper' ); ?></th>
-								<th class="fih-table-type"><?php esc_html_e( 'Type', 'featured-image-helper' ); ?></th>
-								<th class="fih-table-date"><?php esc_html_e( 'Date', 'featured-image-helper' ); ?></th>
-								<th class="fih-table-actions"><?php esc_html_e( 'Actions', 'featured-image-helper' ); ?></th>
-							</tr>
-						</thead>
-						<tbody>
-							<?php if ( $posts_query->have_posts() ) : ?>
-								<?php while ( $posts_query->have_posts() ) : ?>
-									<?php
-									$posts_query->the_post();
-									$post_id = get_the_ID();
-									?>
+					<div class="inside">
+						<table class="wp-list-table widefat fixed striped">
+							<thead>
+								<tr>
+									<td class="manage-column column-cb check-column">
+										<input type="checkbox" id="fih-select-all" />
+									</td>
+									<th class="manage-column column-primary"><?php esc_html_e( 'Title', 'featured-image-helper' ); ?></th>
+									<th class="manage-column"><?php esc_html_e( 'Type', 'featured-image-helper' ); ?></th>
+									<th class="manage-column"><?php esc_html_e( 'Date', 'featured-image-helper' ); ?></th>
+									<th class="manage-column"><?php esc_html_e( 'Actions', 'featured-image-helper' ); ?></th>
+								</tr>
+							</thead>
+							<tbody>
+								<?php if ( $posts_query->have_posts() ) : ?>
+									<?php while ( $posts_query->have_posts() ) : ?>
+										<?php
+										$posts_query->the_post();
+										$post_id = get_the_ID();
+										?>
+										<tr>
+											<th scope="row" class="check-column">
+												<input type="checkbox" name="post_ids[]" value="<?php echo esc_attr( $post_id ); ?>" />
+											</th>
+											<td class="column-primary" data-colname="<?php esc_attr_e( 'Title', 'featured-image-helper' ); ?>">
+												<strong>
+													<a href="<?php echo esc_url( get_edit_post_link( $post_id ) ); ?>">
+														<?php the_title(); ?>
+													</a>
+												</strong>
+											</td>
+											<td data-colname="<?php esc_attr_e( 'Type', 'featured-image-helper' ); ?>">
+												<?php
+												$pt_obj = get_post_type_object( get_post_type() );
+												echo esc_html( $pt_obj->labels->singular_name );
+												?>
+											</td>
+											<td data-colname="<?php esc_attr_e( 'Date', 'featured-image-helper' ); ?>">
+												<?php echo esc_html( get_the_date() ); ?>
+											</td>
+											<td data-colname="<?php esc_attr_e( 'Actions', 'featured-image-helper' ); ?>">
+												<button type="button" class="button button-small fih-generate-single" data-post-id="<?php echo esc_attr( $post_id ); ?>" data-nonce="<?php echo esc_attr( wp_create_nonce( 'fih_generate_' . $post_id ) ); ?>">
+													<?php esc_html_e( 'Generate', 'featured-image-helper' ); ?>
+												</button>
+											</td>
+										</tr>
+									<?php endwhile; ?>
+									<?php wp_reset_postdata(); ?>
+								<?php else : ?>
 									<tr>
-										<td class="fih-table-checkbox">
-											<input type="checkbox" name="post_ids[]" value="<?php echo esc_attr( $post_id ); ?>" />
-										</td>
-										<td class="fih-table-title">
-											<a href="<?php echo esc_url( get_edit_post_link( $post_id ) ); ?>" class="fih-post-link">
-												<?php the_title(); ?>
-											</a>
-										</td>
-										<td class="fih-table-type">
-											<?php
-											$pt_obj = get_post_type_object( get_post_type() );
-											echo esc_html( $pt_obj->labels->singular_name );
-											?>
-										</td>
-										<td class="fih-table-date"><?php echo esc_html( get_the_date() ); ?></td>
-										<td class="fih-table-actions">
-											<button type="button" class="fih-button fih-button-sm fih-generate-single" data-post-id="<?php echo esc_attr( $post_id ); ?>" data-nonce="<?php echo esc_attr( wp_create_nonce( 'fih_generate_' . $post_id ) ); ?>">
-												<?php esc_html_e( 'Generate', 'featured-image-helper' ); ?>
-											</button>
+										<td colspan="5" style="text-align: center; padding: 2em;">
+											<?php esc_html_e( 'No posts found without featured images.', 'featured-image-helper' ); ?>
 										</td>
 									</tr>
-								<?php endwhile; ?>
-								<?php wp_reset_postdata(); ?>
-							<?php else : ?>
-								<tr>
-									<td colspan="5" class="fih-table-empty">
-										<?php esc_html_e( 'No posts found without featured images.', 'featured-image-helper' ); ?>
-									</td>
-								</tr>
-							<?php endif; ?>
-						</tbody>
-					</table>
+								<?php endif; ?>
+							</tbody>
+						</table>
 
-					<?php
-					$total_pages = $posts_query->max_num_pages;
-					if ( $total_pages > 1 ) :
-						?>
-						<div class="fih-pagination">
-							<?php
-							$page_links = paginate_links(
-								array(
-									'base'      => add_query_arg( 'paged', '%#%' ),
-									'format'    => '',
-									'prev_text' => __( '← Previous', 'featured-image-helper' ),
-									'next_text' => __( 'Next →', 'featured-image-helper' ),
-									'total'     => $total_pages,
-									'current'   => $paged,
-									'type'      => 'array',
-								)
-							);
-
-							if ( $page_links ) {
-								echo '<div class="fih-pagination-links">';
-								foreach ( $page_links as $link ) {
-									echo wp_kses_post( $link );
-								}
-								echo '</div>';
-							}
+						<?php
+						$total_pages = $posts_query->max_num_pages;
+						if ( $total_pages > 1 ) :
 							?>
-						</div>
-					<?php endif; ?>
+							<div class="tablenav bottom">
+								<div class="tablenav-pages">
+									<?php
+									echo paginate_links(
+										array(
+											'base'      => add_query_arg( 'paged', '%#%' ),
+											'format'    => '',
+											'prev_text' => __( '&laquo;', 'featured-image-helper' ),
+											'next_text' => __( '&raquo;', 'featured-image-helper' ),
+											'total'     => $total_pages,
+											'current'   => $paged,
+										)
+									);
+									?>
+								</div>
+							</div>
+						<?php endif; ?>
+					</div>
 				</div>
 			</form>
 
 			<!-- Queue Status -->
-			<div class="fih-card fih-queue-card">
-				<h2><?php esc_html_e( 'Queue Status', 'featured-image-helper' ); ?></h2>
-				<div class="fih-queue-stats" data-nonce="<?php echo esc_attr( wp_create_nonce( 'fih_queue_stats' ) ); ?>">
-					<?php $this->render_queue_stats(); ?>
+			<div class="postbox" style="margin-top: 20px;">
+				<div class="postbox-header">
+					<h2><?php esc_html_e( 'Queue Status', 'featured-image-helper' ); ?></h2>
+				</div>
+				<div class="inside">
+					<div class="fih-queue-stats" data-nonce="<?php echo esc_attr( wp_create_nonce( 'fih_queue_stats' ) ); ?>">
+						<?php $this->render_queue_stats(); ?>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -503,30 +509,26 @@ class FIH_Admin {
 		?>
 		<div class="fih-queue-grid">
 			<div class="fih-queue-stat">
-				<div class="fih-queue-stat-label"><?php esc_html_e( 'Pending', 'featured-image-helper' ); ?></div>
-				<div class="fih-queue-stat-value"><?php echo absint( $stats['pending'] ); ?></div>
+				<strong><?php esc_html_e( 'Pending:', 'featured-image-helper' ); ?></strong> <?php echo absint( $stats['pending'] ); ?>
 			</div>
 			<div class="fih-queue-stat">
-				<div class="fih-queue-stat-label"><?php esc_html_e( 'Processing', 'featured-image-helper' ); ?></div>
-				<div class="fih-queue-stat-value"><?php echo absint( $stats['processing'] ); ?></div>
+				<strong><?php esc_html_e( 'Processing:', 'featured-image-helper' ); ?></strong> <?php echo absint( $stats['processing'] ); ?>
 			</div>
 			<div class="fih-queue-stat">
-				<div class="fih-queue-stat-label"><?php esc_html_e( 'Completed', 'featured-image-helper' ); ?></div>
-				<div class="fih-queue-stat-value fih-queue-stat-success"><?php echo absint( $stats['completed'] ); ?></div>
+				<strong style="color: #46b450;"><?php esc_html_e( 'Completed:', 'featured-image-helper' ); ?></strong> <span style="color: #46b450;"><?php echo absint( $stats['completed'] ); ?></span>
 			</div>
 			<div class="fih-queue-stat">
-				<div class="fih-queue-stat-label"><?php esc_html_e( 'Failed', 'featured-image-helper' ); ?></div>
-				<div class="fih-queue-stat-value fih-queue-stat-error"><?php echo absint( $stats['failed'] ); ?></div>
+				<strong style="color: #dc3232;"><?php esc_html_e( 'Failed:', 'featured-image-helper' ); ?></strong> <span style="color: #dc3232;"><?php echo absint( $stats['failed'] ); ?></span>
 			</div>
 		</div>
 
-		<div class="fih-queue-controls">
+		<div class="fih-queue-controls" style="margin-top: 15px;">
 			<?php if ( $queue->is_paused() ) : ?>
-				<button type="button" class="fih-button fih-button-primary fih-resume-queue" data-nonce="<?php echo esc_attr( wp_create_nonce( 'fih_resume_queue' ) ); ?>">
+				<button type="button" class="button button-primary fih-resume-queue" data-nonce="<?php echo esc_attr( wp_create_nonce( 'fih_resume_queue' ) ); ?>">
 					<?php esc_html_e( 'Resume Queue', 'featured-image-helper' ); ?>
 				</button>
 			<?php else : ?>
-				<button type="button" class="fih-button fih-button-secondary fih-pause-queue" data-nonce="<?php echo esc_attr( wp_create_nonce( 'fih_pause_queue' ) ); ?>">
+				<button type="button" class="button fih-pause-queue" data-nonce="<?php echo esc_attr( wp_create_nonce( 'fih_pause_queue' ) ); ?>">
 					<?php esc_html_e( 'Pause Queue', 'featured-image-helper' ); ?>
 				</button>
 			<?php endif; ?>
