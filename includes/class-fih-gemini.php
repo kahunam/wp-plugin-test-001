@@ -21,11 +21,11 @@ if ( ! defined( 'WPINC' ) ) {
 class FIH_Gemini {
 
 	/**
-	 * Imagen API endpoint for image generation.
+	 * Gemini 2.5 Flash API endpoint for image generation (nano banana).
 	 *
 	 * @var string
 	 */
-	private $api_endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict';
+	private $api_endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent';
 
 	/**
 	 * Default prompt templates.
@@ -190,16 +190,96 @@ class FIH_Gemini {
 	 * @return array API request arguments.
 	 */
 	private function get_generation_args( $prompt ) {
-		return array(
-			'instances' => array(
+		// Gemini 2.5 Flash (nano banana) format
+		$args = array(
+			'contents' => array(
 				array(
-					'prompt' => $prompt,
+					'parts' => array(
+						array(
+							'text' => $prompt,
+						),
+					),
 				),
 			),
-			'parameters' => array(
-				'sampleCount' => 1,
+			'generationConfig' => array(
+				'responseModalities' => array( 'Image' ),
 			),
 		);
+
+		// Get image size setting and convert to aspect ratio
+		$image_size = get_option( 'fih_default_image_size', '1200x630' );
+		$aspect_ratio = $this->convert_size_to_aspect_ratio( $image_size );
+		if ( $aspect_ratio ) {
+			$args['generationConfig']['imageConfig'] = array(
+				'aspectRatio' => $aspect_ratio,
+			);
+		}
+
+		return $args;
+	}
+
+	/**
+	 * Convert image size (WIDTHxHEIGHT) to aspect ratio string.
+	 *
+	 * @since 1.0.0
+	 * @param string $size Image size in format WIDTHxHEIGHT.
+	 * @return string|null Aspect ratio string or null if invalid.
+	 */
+	private function convert_size_to_aspect_ratio( $size ) {
+		$parts = explode( 'x', strtolower( $size ) );
+		if ( count( $parts ) !== 2 ) {
+			return null;
+		}
+
+		$width = intval( $parts[0] );
+		$height = intval( $parts[1] );
+
+		if ( $width <= 0 || $height <= 0 ) {
+			return null;
+		}
+
+		// Calculate GCD to simplify ratio
+		$gcd = $this->gcd( $width, $height );
+		$ratio_width = $width / $gcd;
+		$ratio_height = $height / $gcd;
+
+		// Map common ratios
+		$ratio_string = $ratio_width . ':' . $ratio_height;
+		$supported_ratios = array( '1:1', '3:4', '4:3', '9:16', '16:9' );
+
+		// Return if it's a supported ratio
+		if ( in_array( $ratio_string, $supported_ratios, true ) ) {
+			return $ratio_string;
+		}
+
+		// Default to closest supported ratio
+		$ratio = $width / $height;
+		if ( abs( $ratio - 1 ) < 0.1 ) {
+			return '1:1';
+		} elseif ( abs( $ratio - 0.75 ) < 0.1 ) {
+			return '3:4';
+		} elseif ( abs( $ratio - 1.33 ) < 0.1 ) {
+			return '4:3';
+		} elseif ( abs( $ratio - 0.5625 ) < 0.1 ) {
+			return '9:16';
+		} elseif ( abs( $ratio - 1.78 ) < 0.1 ) {
+			return '16:9';
+		}
+
+		// Default to 16:9 for wide images
+		return $ratio >= 1 ? '16:9' : '9:16';
+	}
+
+	/**
+	 * Calculate Greatest Common Divisor.
+	 *
+	 * @since 1.0.0
+	 * @param int $a First number.
+	 * @param int $b Second number.
+	 * @return int GCD.
+	 */
+	private function gcd( $a, $b ) {
+		return $b ? $this->gcd( $b, $a % $b ) : $a;
 	}
 
 	/**
@@ -264,16 +344,31 @@ class FIH_Gemini {
 	 * @return int|WP_Error Attachment ID or error.
 	 */
 	private function save_generated_image( $response, $post ) {
-		// Extract image data from Imagen API response.
-		// Imagen format: predictions[0].bytesBase64Encoded
+		// Extract image data from Gemini 2.5 Flash API response.
+		// Gemini 2.5 Flash format: candidates[0].content.parts[].inline_data.data
 		$image_base64 = null;
+		$mime_type = 'image/png';
 
-		if ( isset( $response['predictions'][0]['bytesBase64Encoded'] ) ) {
-			$image_base64 = $response['predictions'][0]['bytesBase64Encoded'];
+		// Try to find the image in the response parts
+		if ( isset( $response['candidates'][0]['content']['parts'] ) ) {
+			foreach ( $response['candidates'][0]['content']['parts'] as $part ) {
+				if ( isset( $part['inline_data']['data'] ) ) {
+					$image_base64 = $part['inline_data']['data'];
+					if ( isset( $part['inline_data']['mime_type'] ) ) {
+						$mime_type = $part['inline_data']['mime_type'];
+					}
+					break;
+				}
+			}
 		}
 
 		if ( empty( $image_base64 ) ) {
-			return new WP_Error( 'invalid_response', __( 'Invalid image data returned from API. Please check your API key and try again.', 'featured-image-helper' ) );
+			// Log the full response for debugging
+			$logger = FIH_Core::get_instance()->get_logger();
+			if ( $logger && get_option( 'fih_debug_logging_enabled', false ) ) {
+				$logger->log_api_event( 'image_generation', 'Invalid API response structure: ' . wp_json_encode( $response ), 'error' );
+			}
+			return new WP_Error( 'invalid_response', __( 'Invalid image data returned from API. Please check your API key and ensure it has access to Gemini 2.5 Flash.', 'featured-image-helper' ) );
 		}
 
 		$image_data = base64_decode( $image_base64 );
@@ -282,8 +377,15 @@ class FIH_Gemini {
 			return new WP_Error( 'empty_image', __( 'Failed to decode image data from API response.', 'featured-image-helper' ) );
 		}
 
-		// Generate filename.
-		$filename = sanitize_file_name( $post->post_name ) . '-' . time() . '.png';
+		// Generate filename with correct extension
+		$extension = 'png';
+		if ( strpos( $mime_type, 'jpeg' ) !== false || strpos( $mime_type, 'jpg' ) !== false ) {
+			$extension = 'jpg';
+		} elseif ( strpos( $mime_type, 'webp' ) !== false ) {
+			$extension = 'webp';
+		}
+
+		$filename = sanitize_file_name( $post->post_name ) . '-' . time() . '.' . $extension;
 		$upload   = wp_upload_bits( $filename, null, $image_data );
 
 		if ( $upload['error'] ) {
@@ -292,7 +394,7 @@ class FIH_Gemini {
 
 		// Prepare attachment data.
 		$attachment = array(
-			'post_mime_type' => 'image/png',
+			'post_mime_type' => $mime_type,
 			'post_title'     => $post->post_title,
 			'post_content'   => '',
 			'post_status'    => 'inherit',
@@ -397,15 +499,19 @@ class FIH_Gemini {
 			return $error;
 		}
 
-		// Make a simple test request using Imagen API format.
+		// Make a simple test request using Gemini 2.5 Flash format.
 		$args = array(
-			'instances' => array(
+			'contents' => array(
 				array(
-					'prompt' => 'A simple blue sky with white clouds',
+					'parts' => array(
+						array(
+							'text' => 'A simple blue sky with white clouds',
+						),
+					),
 				),
 			),
-			'parameters' => array(
-				'sampleCount' => 1,
+			'generationConfig' => array(
+				'responseModalities' => array( 'Image' ),
 			),
 		);
 
@@ -425,9 +531,19 @@ class FIH_Gemini {
 			return $response;
 		}
 
-		// Check if response has the expected Imagen structure
-		if ( ! isset( $response['predictions'] ) || ! isset( $response['predictions'][0]['bytesBase64Encoded'] ) ) {
-			$error = new WP_Error( 'invalid_response', __( 'API returned an unexpected response format. Please verify your API key has access to Imagen.', 'featured-image-helper' ) );
+		// Check if response has the expected Gemini 2.5 Flash structure
+		$has_valid_image = false;
+		if ( isset( $response['candidates'][0]['content']['parts'] ) ) {
+			foreach ( $response['candidates'][0]['content']['parts'] as $part ) {
+				if ( isset( $part['inline_data']['data'] ) ) {
+					$has_valid_image = true;
+					break;
+				}
+			}
+		}
+
+		if ( ! $has_valid_image ) {
+			$error = new WP_Error( 'invalid_response', __( 'API returned an unexpected response format. Please verify your API key has access to Gemini 2.5 Flash for image generation.', 'featured-image-helper' ) );
 
 			// Log the test failure
 			if ( $logger ) {
@@ -441,7 +557,7 @@ class FIH_Gemini {
 		if ( $logger ) {
 			$logger->log_api_event(
 				'api_test',
-				'API test successful! Imagen 3 API is working correctly and can generate images. (Time: ' . number_format( $test_time, 2 ) . 's)',
+				'API test successful! Gemini 2.5 Flash (nano banana) API is working correctly and can generate images. (Time: ' . number_format( $test_time, 2 ) . 's)',
 				'success'
 			);
 		}

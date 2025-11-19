@@ -346,7 +346,8 @@ class FIH_Admin {
 
 		?>
 		<div class="wrap">
-			<h1><?php esc_html_e( 'Featured Image Helper', 'featured-image-helper' ); ?></h1>
+			<h1 class="wp-heading-inline"><?php esc_html_e( 'Featured Image Helper', 'featured-image-helper' ); ?></h1>
+			<hr class="wp-header-end">
 
 			<!-- Stats Cards -->
 			<div class="fih-stats-grid">
@@ -355,10 +356,13 @@ class FIH_Admin {
 					$pt_obj = get_post_type_object( $pt );
 					?>
 					<div class="postbox">
+						<div class="postbox-header">
+							<h2 class="hndle"><?php echo esc_html( $pt_obj->labels->name ); ?></h2>
+						</div>
 						<div class="inside">
 							<div class="main">
 								<p class="fih-stat-count"><?php echo absint( $count ); ?></p>
-								<p><?php echo esc_html( $pt_obj->labels->name ); ?> <?php esc_html_e( 'without featured images', 'featured-image-helper' ); ?></p>
+								<p class="description"><?php esc_html_e( 'without featured images', 'featured-image-helper' ); ?></p>
 							</div>
 						</div>
 					</div>
@@ -794,11 +798,12 @@ class FIH_Admin {
 		$active_tab = isset( $_GET['tab'] ) ? sanitize_text_field( wp_unslash( $_GET['tab'] ) ) : 'api';
 		?>
 		<div class="wrap fih-wrap fih-settings-wrap">
-			<h1 class="fih-page-title"><?php esc_html_e( 'Settings', 'featured-image-helper' ); ?></h1>
+			<h1 class="wp-heading-inline"><?php esc_html_e( 'Featured Image Helper Settings', 'featured-image-helper' ); ?></h1>
+			<hr class="wp-header-end">
 
 			<?php if ( isset( $_GET['settings-updated'] ) ) : ?>
 				<div class="notice notice-success is-dismissible">
-					<p><?php esc_html_e( 'Settings saved successfully!', 'featured-image-helper' ); ?></p>
+					<p><span class="dashicons dashicons-yes-alt" style="color: #46b450;"></span> <?php esc_html_e( 'Settings saved successfully!', 'featured-image-helper' ); ?></p>
 				</div>
 			<?php endif; ?>
 
@@ -807,9 +812,11 @@ class FIH_Admin {
 				$test_result  = sanitize_text_field( wp_unslash( $_GET['test_result'] ) );
 				$test_message = rawurldecode( sanitize_text_field( wp_unslash( $_GET['test_message'] ) ) );
 				$notice_class = 'success' === $test_result ? 'notice-success' : 'notice-error';
+				$icon_class = 'success' === $test_result ? 'dashicons-yes-alt' : 'dashicons-warning';
+				$icon_color = 'success' === $test_result ? '#46b450' : '#d63638';
 				?>
 				<div class="notice <?php echo esc_attr( $notice_class ); ?> is-dismissible">
-					<p><?php echo esc_html( $test_message ); ?></p>
+					<p><span class="dashicons <?php echo esc_attr( $icon_class ); ?>" style="color: <?php echo esc_attr( $icon_color ); ?>;"></span> <?php echo esc_html( $test_message ); ?></p>
 				</div>
 			<?php endif; ?>
 
@@ -877,7 +884,7 @@ class FIH_Admin {
 				<?php $has_api_key = ! empty( get_option( 'fih_gemini_api_key' ) ); ?>
 				<input type="password" id="fih_gemini_api_key" name="fih_gemini_api_key" value="" class="fih-input" placeholder="<?php echo $has_api_key ? esc_attr__( 'Enter new API key to update', 'featured-image-helper' ) : esc_attr__( 'Enter your Gemini API key', 'featured-image-helper' ); ?>" />
 				<p class="fih-help-text">
-					<?php esc_html_e( 'This plugin uses Google Imagen 3 for AI image generation. Get your API key from Google AI Studio.', 'featured-image-helper' ); ?>
+					<?php esc_html_e( 'This plugin uses Gemini 2.5 Flash (nano banana) for AI image generation. Get your API key from Google AI Studio.', 'featured-image-helper' ); ?>
 					<a href="https://aistudio.google.com/app/apikey" target="_blank" class="fih-link"><?php esc_html_e( 'Get API Key', 'featured-image-helper' ); ?></a>
 				</p>
 				<?php if ( $has_api_key ) : ?>
