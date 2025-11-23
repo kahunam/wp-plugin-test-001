@@ -1,0 +1,19 @@
+{
+  "name": "featured-image-helper",
+  "version": "1.0.0",
+  "description": "WordPress plugin for automated featured image generation using Google Gemini AI",
+  "scripts": {
+    "build": "wp-scripts build",
+    "start": "wp-scripts start",
+    "packages-update": "wp-scripts packages-update"
+  },
+  "devDependencies": {
+    "@wordpress/scripts": "^28.0.0"
+  },
+  "dependencies": {
+    "@wordpress/components": "^28.0.0",
+    "@wordpress/element": "^6.0.0",
+    "@wordpress/i18n": "^5.0.0",
+    "@wordpress/api-fetch": "^7.0.0"
+  }
+}

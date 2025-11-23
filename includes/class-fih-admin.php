@@ -286,6 +286,12 @@ class FIH_Admin {
 			return;
 		}
 
+		// Check if we're on the settings page - use React UI.
+		if ( 'featured-images_page_' . $this->settings_slug === $hook ) {
+			$this->enqueue_react_settings();
+			return;
+		}
+
 		// Enqueue CSS.
 		wp_enqueue_style(
 			'fih-admin-css',
@@ -321,6 +327,51 @@ class FIH_Admin {
 					'useThisImage'  => __( 'Use This Image', 'featured-image-helper' ),
 					'confirmClear'  => __( 'Are you sure you want to clear all logs?', 'featured-image-helper' ),
 				),
+			)
+		);
+	}
+
+	/**
+	 * Enqueue React-based settings page assets.
+	 *
+	 * @since 1.0.0
+	 */
+	private function enqueue_react_settings() {
+		$asset_file = FIH_PLUGIN_DIR . 'build/settings.asset.php';
+
+		if ( ! file_exists( $asset_file ) ) {
+			return;
+		}
+
+		$asset = require $asset_file;
+
+		// Enqueue WordPress component styles.
+		wp_enqueue_style( 'wp-components' );
+
+		// Enqueue built React app.
+		wp_enqueue_script(
+			'fih-settings-js',
+			FIH_PLUGIN_URL . 'build/settings.js',
+			$asset['dependencies'],
+			$asset['version'],
+			true
+		);
+
+		// Enqueue React app styles.
+		wp_enqueue_style(
+			'fih-settings-css',
+			FIH_PLUGIN_URL . 'build/settings.css',
+			array( 'wp-components' ),
+			$asset['version']
+		);
+
+		// Set up REST API.
+		wp_localize_script(
+			'fih-settings-js',
+			'fihSettings',
+			array(
+				'restUrl'   => rest_url(),
+				'restNonce' => wp_create_nonce( 'wp_rest' ),
 			)
 		);
 	}

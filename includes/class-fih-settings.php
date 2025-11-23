@@ -147,58 +147,10 @@ class FIH_Settings {
 			wp_die( esc_html__( 'You do not have sufficient permissions to access this page.', 'featured-image-helper' ) );
 		}
 
-		$active_tab = isset( $_GET['tab'] ) ? sanitize_text_field( wp_unslash( $_GET['tab'] ) ) : 'api';
+		// Render React root container for Gutenberg components
 		?>
 		<div class="wrap">
-			<h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
-
-			<h2 class="nav-tab-wrapper">
-				<a href="?page=<?php echo esc_attr( $this->page_slug ); ?>&tab=api" class="nav-tab <?php echo 'api' === $active_tab ? 'nav-tab-active' : ''; ?>">
-					<?php esc_html_e( 'API Configuration', 'featured-image-helper' ); ?>
-				</a>
-				<a href="?page=<?php echo esc_attr( $this->page_slug ); ?>&tab=generation" class="nav-tab <?php echo 'generation' === $active_tab ? 'nav-tab-active' : ''; ?>">
-					<?php esc_html_e( 'Generation Settings', 'featured-image-helper' ); ?>
-				</a>
-				<a href="?page=<?php echo esc_attr( $this->page_slug ); ?>&tab=autofill" class="nav-tab <?php echo 'autofill' === $active_tab ? 'nav-tab-active' : ''; ?>">
-					<?php esc_html_e( 'Auto-Fill Rules', 'featured-image-helper' ); ?>
-				</a>
-				<a href="?page=<?php echo esc_attr( $this->page_slug ); ?>&tab=fallback" class="nav-tab <?php echo 'fallback' === $active_tab ? 'nav-tab-active' : ''; ?>">
-					<?php esc_html_e( 'Fallback Options', 'featured-image-helper' ); ?>
-				</a>
-				<a href="?page=<?php echo esc_attr( $this->page_slug ); ?>&tab=logs" class="nav-tab <?php echo 'logs' === $active_tab ? 'nav-tab-active' : ''; ?>">
-					<?php esc_html_e( 'Logs', 'featured-image-helper' ); ?>
-				</a>
-				<a href="?page=<?php echo esc_attr( $this->page_slug ); ?>&tab=advanced" class="nav-tab <?php echo 'advanced' === $active_tab ? 'nav-tab-active' : ''; ?>">
-					<?php esc_html_e( 'Advanced', 'featured-image-helper' ); ?>
-				</a>
-			</h2>
-
-			<div class="fih-settings-content">
-				<?php
-				switch ( $active_tab ) {
-					case 'api':
-						$this->render_api_settings();
-						break;
-					case 'generation':
-						$this->render_generation_settings();
-						break;
-					case 'autofill':
-						$this->render_autofill_settings();
-						break;
-					case 'fallback':
-						$this->render_fallback_settings();
-						break;
-					case 'logs':
-						$this->render_logs_tab();
-						break;
-					case 'advanced':
-						$this->render_advanced_settings();
-						break;
-					default:
-						$this->render_api_settings();
-				}
-				?>
-			</div>
+			<div id="fih-settings-root"></div>
 		</div>
 		<?php
 	}
