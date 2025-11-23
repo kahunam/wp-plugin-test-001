@@ -30,6 +30,24 @@ define( 'FIH_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'FIH_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
 
 /**
+ * Load Composer autoloader if available.
+ */
+if ( file_exists( FIH_PLUGIN_DIR . 'vendor/autoload.php' ) ) {
+	require_once FIH_PLUGIN_DIR . 'vendor/autoload.php';
+
+	// Load environment variables from .env file if it exists
+	if ( class_exists( 'Dotenv\Dotenv' ) && file_exists( FIH_PLUGIN_DIR . '.env' ) ) {
+		try {
+			$dotenv = Dotenv\Dotenv::createImmutable( FIH_PLUGIN_DIR );
+			$dotenv->load();
+		} catch ( Exception $e ) {
+			// Silently fail if .env file is malformed
+			error_log( 'Featured Image Helper: Failed to load .env file - ' . $e->getMessage() );
+		}
+	}
+}
+
+/**
  * The code that runs during plugin activation.
  */
 function fih_activate_plugin() {

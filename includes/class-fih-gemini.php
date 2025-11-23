@@ -21,22 +21,73 @@ if ( ! defined( 'WPINC' ) ) {
 class FIH_Gemini {
 
 	/**
-	 * Gemini 2.5 Flash API endpoint for image generation (nano banana).
+	 * Base API URL for Gemini API.
 	 *
 	 * @var string
 	 */
-	private $api_endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent';
+	private $api_base_url = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 	/**
-	 * Default prompt templates.
+	 * Default model for text generation (concept analysis).
+	 *
+	 * @var string
+	 */
+	private $default_text_model = 'gemini-2.5-flash';
+
+	/**
+	 * Default model for image generation.
+	 *
+	 * @var string
+	 */
+	private $default_image_model = 'gemini-2.5-flash-image';
+
+	/**
+	 * Default prompt templates using SPLICE rubric.
+	 * S – Style and medium
+	 * P – Perspective and composition
+	 * L – Lighting and atmosphere
+	 * I – Identity of the subject
+	 * C – Cultural and contextual details
+	 * E – Emotion and energy
 	 *
 	 * @var array
 	 */
 	private $prompt_templates = array(
-		'photographic' => 'Create a high-quality, professional photograph that represents: {content}. Style: photorealistic, well-lit, sharp focus.',
-		'illustration' => 'Create a beautiful illustration that represents: {content}. Style: artistic, colorful, detailed illustration.',
-		'abstract'     => 'Create an abstract visual representation of: {content}. Style: modern, abstract art, bold colors.',
-		'minimal'      => 'Create a minimal, clean design that represents: {content}. Style: minimalist, simple, elegant.',
+		'photographic' => 'Style: Professional photorealistic photograph, high-quality digital photography
+Perspective: Centered composition, balanced framing, professional editorial layout
+Lighting: Natural, well-lit, soft professional lighting with good contrast and depth
+Subject: {content}
+Context: Modern, professional setting with clean background, sharp focus on main subject
+Emotion: Authoritative, trustworthy, clear and informative
+
+Rules: No text, no words, no letters, no captions',
+
+		'illustration' => 'Style: Beautiful digital illustration, artistic rendering, hand-drawn aesthetic
+Perspective: Dynamic composition with interesting angles and visual flow
+Lighting: Vibrant, colorful lighting with artistic highlights and shadows
+Subject: {content}
+Context: Rich visual details, artistic interpretation, creative elements
+Emotion: Engaging, creative, visually appealing and memorable
+
+Rules: No text, no words, no letters, no captions',
+
+		'abstract'     => 'Style: Modern abstract art, bold geometric or organic shapes
+Perspective: Dynamic composition with visual movement and balance
+Lighting: Dramatic lighting with strong contrast, bold color relationships
+Subject: Abstract visual representation of {content}
+Context: Contemporary art style, sophisticated color palette, artistic interpretation
+Emotion: Thought-provoking, energetic, conceptual and expressive
+
+Rules: No text, no words, no letters, no captions',
+
+		'minimal'      => 'Style: Clean minimalist design, simple geometric forms
+Perspective: Symmetrical or intentionally asymmetric composition, plenty of negative space
+Lighting: Soft, even lighting with subtle gradients, clean and bright
+Subject: Minimalist representation of {content}
+Context: Simple, elegant, uncluttered visual with essential elements only
+Emotion: Calm, sophisticated, clear and purposeful
+
+Rules: No text, no words, no letters, no captions',
 	);
 
 	/**
@@ -46,6 +97,128 @@ class FIH_Gemini {
 	 */
 	public function __construct() {
 		// Initialize any hooks if needed.
+	}
+
+	/**
+	 * Get the text generation model name.
+	 *
+	 * @since 1.0.0
+	 * @return string Model name.
+	 */
+	private function get_text_model() {
+		return apply_filters( 'fih_text_generation_model', $this->default_text_model );
+	}
+
+	/**
+	 * Get the image generation model name.
+	 *
+	 * @since 1.0.0
+	 * @return string Model name.
+	 */
+	private function get_image_model() {
+		return apply_filters( 'fih_image_generation_model', $this->default_image_model );
+	}
+
+	/**
+	 * Build API endpoint URL for a given model.
+	 *
+	 * @since 1.0.0
+	 * @param string $model Model name.
+	 * @return string Full API endpoint URL.
+	 */
+	private function get_api_endpoint( $model ) {
+		return $this->api_base_url . '/' . $model . ':generateContent';
+	}
+
+	/**
+	 * Generate visual concepts from content using Gemini text model.
+	 *
+	 * Uses semiotic analysis to convert abstract concepts into concrete visual metaphors.
+	 *
+	 * @since 1.0.0
+	 * @param string $content The content to analyze (title, excerpt, etc).
+	 * @return string|WP_Error The visual concept brief, or WP_Error on failure.
+	 */
+	private function generate_visual_concept( $content ) {
+		$api_key = $this->get_api_key();
+
+		if ( empty( $api_key ) ) {
+			return new WP_Error( 'no_api_key', __( 'API key is not configured.', 'featured-image-helper' ) );
+		}
+
+		// Prompt for semantic analysis and visual concept generation
+		$analysis_prompt = "Identify any companies or organizations mentioned in this title. Determine what INDUSTRY or TYPE OF ACTIVITY that organization does (e.g., postal service, banking, retail, technology, etc.). Then describe a simple photographic scene showing INANIMATE OBJECTS or SETTINGS related to that industry. Prioritize common objects (tools, equipment, products) over people. Do NOT show company uniforms, branded products, logos, or organizational identifiers. Keep it simple and generic. Use 2-3 sentences maximum.
+
+Title: \"$content\"
+
+Visual scene:";
+
+		$request_body = array(
+			'contents' => array(
+				array(
+					'parts' => array(
+						array( 'text' => $analysis_prompt ),
+					),
+				),
+			),
+			'generationConfig' => array(
+				'temperature'     => 0.7,
+				'maxOutputTokens' => 1000,
+				'thinkingConfig'  => array(
+					'thinkingBudget' => 0,
+				),
+			),
+			'tools' => array(
+				array(
+					'google_search' => new stdClass(), // Enable Google Search grounding
+				),
+			),
+		);
+
+		$text_model = $this->get_text_model();
+		$endpoint   = $this->get_api_endpoint( $text_model );
+
+		$response = wp_remote_post(
+			$endpoint . '?key=' . $api_key,
+			array(
+				'headers' => array(
+					'Content-Type' => 'application/json',
+				),
+				'body'    => wp_json_encode( $request_body ),
+				'timeout' => 30,
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+
+		$response_code = wp_remote_retrieve_response_code( $response );
+		$response_body = wp_remote_retrieve_body( $response );
+		$data          = json_decode( $response_body, true );
+
+		if ( 200 !== $response_code ) {
+			$error_message = isset( $data['error']['message'] ) ? $data['error']['message'] : __( 'Unknown API error', 'featured-image-helper' );
+			// Log the full response for debugging
+			error_log( 'Gemini text API error (HTTP ' . $response_code . '): ' . $response_body );
+			return new WP_Error( 'api_error', $error_message . ' (HTTP ' . $response_code . ')' );
+		}
+
+		// Extract the generated concept
+		if ( isset( $data['candidates'][0]['content']['parts'][0]['text'] ) ) {
+			$visual_concept = trim( $data['candidates'][0]['content']['parts'][0]['text'] );
+
+			// Remove any markdown formatting or quotes
+			$visual_concept = preg_replace( '/^["\']+|["\']+$/', '', $visual_concept );
+			$visual_concept = trim( $visual_concept );
+
+			return $visual_concept;
+		}
+
+		// Log the response structure for debugging
+		error_log( 'Gemini visual concept response structure: ' . print_r( $data, true ) );
+
+		return new WP_Error( 'invalid_response', __( 'Failed to generate visual concept from API response.', 'featured-image-helper' ) );
 	}
 
 	/**
@@ -144,6 +317,10 @@ class FIH_Gemini {
 	/**
 	 * Build prompt from post content.
 	 *
+	 * Uses two-step process:
+	 * 1. Generate visual concept from content using semiotic analysis
+	 * 2. Apply visual concept to SPLICE template
+	 *
 	 * @since 1.0.0
 	 * @param WP_Post $post Post object.
 	 * @param string  $style Prompt style.
@@ -175,7 +352,24 @@ class FIH_Gemini {
 		$content = wp_strip_all_tags( $content );
 		$content = sanitize_text_field( $content );
 
-		// Get template and replace placeholder.
+		// Check if semantic transformation is enabled (default: true)
+		$use_semantic_transformation = apply_filters( 'fih_use_semantic_transformation', true );
+
+		if ( $use_semantic_transformation ) {
+			// Step 1: Generate visual concept using semiotic analysis
+			$visual_concept = $this->generate_visual_concept( $content );
+
+			// If concept generation fails, fall back to original content
+			if ( is_wp_error( $visual_concept ) ) {
+				// Log the error but continue with original content
+				error_log( 'Featured Image Helper: Visual concept generation failed - ' . $visual_concept->get_error_message() );
+			} else {
+				// Use the generated visual concept instead of literal content
+				$content = $visual_concept;
+			}
+		}
+
+		// Step 2: Get template and replace placeholder with visual concept
 		$template = isset( $this->prompt_templates[ $style ] ) ? $this->prompt_templates[ $style ] : $this->prompt_templates['photographic'];
 		$prompt   = str_replace( '{content}', $content, $template );
 
@@ -291,10 +485,12 @@ class FIH_Gemini {
 	 * @return array|WP_Error Response data or error.
 	 */
 	private function make_api_request( $args, $retry_count = 0 ) {
-		$api_key = $this->get_api_key();
+		$api_key      = $this->get_api_key();
+		$image_model  = $this->get_image_model();
+		$endpoint     = $this->get_api_endpoint( $image_model );
 
 		$response = wp_remote_post(
-			$this->api_endpoint,
+			$endpoint,
 			array(
 				'headers' => array(
 					'Content-Type'   => 'application/json',
@@ -350,8 +546,18 @@ class FIH_Gemini {
 		$mime_type = 'image/png';
 
 		// Try to find the image in the response parts
+		// Note: API returns camelCase (inlineData) not snake_case (inline_data)
 		if ( isset( $response['candidates'][0]['content']['parts'] ) ) {
 			foreach ( $response['candidates'][0]['content']['parts'] as $part ) {
+				// Try camelCase first (actual API format)
+				if ( isset( $part['inlineData']['data'] ) ) {
+					$image_base64 = $part['inlineData']['data'];
+					if ( isset( $part['inlineData']['mimeType'] ) ) {
+						$mime_type = $part['inlineData']['mimeType'];
+					}
+					break;
+				}
+				// Fallback to snake_case for backwards compatibility
 				if ( isset( $part['inline_data']['data'] ) ) {
 					$image_base64 = $part['inline_data']['data'];
 					if ( isset( $part['inline_data']['mime_type'] ) ) {
@@ -472,6 +678,12 @@ class FIH_Gemini {
 	 * @return string API key.
 	 */
 	private function get_api_key() {
+		// Check for environment variable first (useful for testing)
+		if ( ! empty( $_ENV['GEMINI_API_KEY'] ) ) {
+			return $_ENV['GEMINI_API_KEY'];
+		}
+
+		// Fall back to WordPress option
 		return get_option( 'fih_gemini_api_key', '' );
 	}
 
@@ -532,10 +744,12 @@ class FIH_Gemini {
 		}
 
 		// Check if response has the expected Gemini 2.5 Flash structure
+		// Note: API returns camelCase (inlineData) not snake_case (inline_data)
 		$has_valid_image = false;
 		if ( isset( $response['candidates'][0]['content']['parts'] ) ) {
 			foreach ( $response['candidates'][0]['content']['parts'] as $part ) {
-				if ( isset( $part['inline_data']['data'] ) ) {
+				// Check for camelCase (actual API format)
+				if ( isset( $part['inlineData']['data'] ) || isset( $part['inline_data']['data'] ) ) {
 					$has_valid_image = true;
 					break;
 				}

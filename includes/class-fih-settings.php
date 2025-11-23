@@ -62,8 +62,6 @@ class FIH_Settings {
 	public function register_settings() {
 		// API Configuration.
 		register_setting( 'fih_api_settings', 'fih_gemini_api_key', array( $this, 'sanitize_api_key' ) );
-		register_setting( 'fih_api_settings', 'fih_unsplash_api_key', 'sanitize_text_field' );
-		register_setting( 'fih_api_settings', 'fih_pexels_api_key', 'sanitize_text_field' );
 
 		// Generation Settings.
 		register_setting( 'fih_generation_settings', 'fih_default_prompt_style', 'sanitize_text_field' );
@@ -240,24 +238,6 @@ class FIH_Settings {
 							<?php esc_html_e( 'This plugin uses Google Imagen 3 for AI image generation. Get your API key from Google AI Studio.', 'featured-image-helper' ); ?>
 							<a href="https://aistudio.google.com/app/apikey" target="_blank"><?php esc_html_e( 'Get API Key', 'featured-image-helper' ); ?></a>
 						</p>
-					</td>
-				</tr>
-				<tr>
-					<th scope="row">
-						<label for="fih_unsplash_api_key"><?php esc_html_e( 'Unsplash API Key (Optional)', 'featured-image-helper' ); ?></label>
-					</th>
-					<td>
-						<input type="text" id="fih_unsplash_api_key" name="fih_unsplash_api_key" value="<?php echo esc_attr( get_option( 'fih_unsplash_api_key', '' ) ); ?>" class="regular-text" />
-						<p class="description"><?php esc_html_e( 'For smart suggestions from Unsplash.', 'featured-image-helper' ); ?></p>
-					</td>
-				</tr>
-				<tr>
-					<th scope="row">
-						<label for="fih_pexels_api_key"><?php esc_html_e( 'Pexels API Key (Optional)', 'featured-image-helper' ); ?></label>
-					</th>
-					<td>
-						<input type="text" id="fih_pexels_api_key" name="fih_pexels_api_key" value="<?php echo esc_attr( get_option( 'fih_pexels_api_key', '' ) ); ?>" class="regular-text" />
-						<p class="description"><?php esc_html_e( 'For smart suggestions from Pexels.', 'featured-image-helper' ); ?></p>
 					</td>
 				</tr>
 			</table>

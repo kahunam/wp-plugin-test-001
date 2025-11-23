@@ -27,8 +27,6 @@ function fih_uninstall() {
 	// Delete all plugin options.
 	$options = array(
 		'fih_gemini_api_key',
-		'fih_unsplash_api_key',
-		'fih_pexels_api_key',
 		'fih_default_prompt_style',
 		'fih_content_source',
 		'fih_default_image_size',

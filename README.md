@@ -14,7 +14,6 @@ Featured Image Helper is a powerful WordPress plugin that helps you automaticall
 - **Admin List Screen**: Custom admin page under Media menu with filterable table by post type, category, and date range
 - **Gemini AI Generation**: Generate images from post title, excerpt, or full content using various styles
 - **Batch Processing**: Queue system using WordPress cron to process multiple images efficiently
-- **Smart Suggestions**: Scan media library by post content keywords with optional Unsplash/Pexels integration
 - **Bulk Actions**: Set featured images from library, generate with Gemini, apply default fallback image
 - **Auto-Fill Rules**: Automatically generate featured images on post publish or update
 - **SEO Enhancement**: Auto-generate alt text and image titles via Gemini
@@ -47,8 +46,7 @@ Featured Image Helper is a powerful WordPress plugin that helps you automaticall
 
 1. Go to Settings → Featured Image Helper → API Configuration
 2. Enter your Google Gemini API key (get one from [Google AI Studio](https://makersuite.google.com/app/apikey))
-3. Optionally add Unsplash or Pexels API keys for smart suggestions
-4. Test your API connection
+3. Test your API connection
 
 ### Generation Settings
 

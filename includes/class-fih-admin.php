@@ -898,24 +898,6 @@ class FIH_Admin {
 				<?php endif; ?>
 			</div>
 
-			<div class="fih-form-group">
-				<label for="fih_unsplash_api_key" class="fih-label">
-					<?php esc_html_e( 'Unsplash API Key', 'featured-image-helper' ); ?>
-					<span class="fih-optional"><?php esc_html_e( '(Optional)', 'featured-image-helper' ); ?></span>
-				</label>
-				<input type="text" id="fih_unsplash_api_key" name="fih_unsplash_api_key" value="<?php echo esc_attr( get_option( 'fih_unsplash_api_key', '' ) ); ?>" class="fih-input" />
-				<p class="fih-help-text"><?php esc_html_e( 'For smart suggestions from Unsplash.', 'featured-image-helper' ); ?></p>
-			</div>
-
-			<div class="fih-form-group">
-				<label for="fih_pexels_api_key" class="fih-label">
-					<?php esc_html_e( 'Pexels API Key', 'featured-image-helper' ); ?>
-					<span class="fih-optional"><?php esc_html_e( '(Optional)', 'featured-image-helper' ); ?></span>
-				</label>
-				<input type="text" id="fih_pexels_api_key" name="fih_pexels_api_key" value="<?php echo esc_attr( get_option( 'fih_pexels_api_key', '' ) ); ?>" class="fih-input" />
-				<p class="fih-help-text"><?php esc_html_e( 'For smart suggestions from Pexels.', 'featured-image-helper' ); ?></p>
-			</div>
-
 			<div class="fih-form-actions">
 				<button type="submit" class="fih-button fih-button-primary"><?php esc_html_e( 'Save Settings', 'featured-image-helper' ); ?></button>
 			</div>
@@ -1202,12 +1184,6 @@ class FIH_Admin {
 							$logger->log_api_event( 'api_key_saved', 'Gemini API key was updated', 'success' );
 						}
 					}
-				}
-				if ( isset( $_POST['fih_unsplash_api_key'] ) ) {
-					update_option( 'fih_unsplash_api_key', sanitize_text_field( wp_unslash( $_POST['fih_unsplash_api_key'] ) ) );
-				}
-				if ( isset( $_POST['fih_pexels_api_key'] ) ) {
-					update_option( 'fih_pexels_api_key', sanitize_text_field( wp_unslash( $_POST['fih_pexels_api_key'] ) ) );
 				}
 				break;
 
