@@ -146,11 +146,19 @@ class FIH_Settings {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( 'You do not have sufficient permissions to access this page.', 'featured-image-helper' ) );
 		}
-
-		// Render React root container for Gutenberg components
 		?>
 		<div class="wrap">
-			<div id="fih-settings-root"></div>
+			<h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
+
+			<?php settings_errors(); ?>
+
+			<form method="post" action="options.php">
+				<?php
+				settings_fields( 'fih_settings' );
+				do_settings_sections( 'fih_settings' );
+				submit_button();
+				?>
+			</form>
 		</div>
 		<?php
 	}
